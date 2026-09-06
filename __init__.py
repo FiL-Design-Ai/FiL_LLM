@@ -40,6 +40,7 @@ class FiLExtension(ComfyExtension):
         from .nodes.node_prompt_director import FiLPromptDirector
         from .nodes.node_prompter import FiLPrompter
         from .nodes.node_show_any import FiLShowAny
+        from .nodes.node_krea2_tiled_diffusion import FiLKrea2TiledDiffusion
         return filter_release_nodes([
             FiLSeed,
             FiLProviderLoader,
@@ -64,6 +65,7 @@ class FiLExtension(ComfyExtension):
             FiLPromptDirector,
             FiLPrompter,
             FiLShowAny,
+            FiLKrea2TiledDiffusion,
         ])
 
 

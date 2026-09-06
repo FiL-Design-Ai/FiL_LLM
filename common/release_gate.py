@@ -42,6 +42,7 @@ RELEASE_NODES: set[str] = {
     "FiLPromptDirector",
     "FiLPrompter",
     "FiLShowAny",
+    "FiLKrea2TiledDiffusion",
 }
 
 _TRUTHY = {"1", "true", "yes", "on"}

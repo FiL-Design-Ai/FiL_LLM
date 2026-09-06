@@ -29,6 +29,7 @@ import { editEncoderNode } from "@/nodes2/nodes/edit_encoder";
 import { promptDirectorNode } from "@/nodes2/nodes/prompt_director";
 import { prompterNode } from "@/nodes2/nodes/prompter";
 import { showAnyNode } from "@/nodes2/nodes/show_any";
+import { krea2TiledDiffusionNode } from "@/nodes2/nodes/krea2_tiled_diffusion";
 
 export interface NodeModule {
   id: string;
@@ -59,6 +60,7 @@ const modules: NodeModule[] = [
   promptDirectorNode,
   prompterNode,
   showAnyNode,
+  krea2TiledDiffusionNode,
 ];
 
 export const NODE_MODULES: Record<string, NodeModule> = Object.fromEntries(
