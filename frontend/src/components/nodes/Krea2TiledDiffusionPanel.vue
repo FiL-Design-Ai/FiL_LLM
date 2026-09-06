@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * FiLKrea2TiledDiffusion — Krea 2 Ultra-HD Tiled Diffusion panel.
- * Custom Cyberpunk UI with all controls fully visible, interactive and responsive.
+ * Clean, sequential full-width layout matching the official FiL Design standard (KSampler, UpscaleTileCalc).
  */
 import { computed } from "vue";
 import { FilSlider, FilNumberInput, FilSelect, FilTextArea } from "@/components/widgets";
@@ -42,23 +42,23 @@ function comboOptions(name: string, fallback: string[]): string[] {
   return Array.isArray(vals) && vals.length ? (vals as string[]) : fallback;
 }
 
-// Reactive Fields bound to node state
+// Fields
 const prompt = stringField("prompt", "hyperrealistic, highly detailed, 8k uhd");
 const seed = numberField("seed", 0);
 const controlAfterGenerate = stringField("control_after_generate", "randomize");
 const steps = numberField("steps", 8);
 const denoise = numberField("denoise", 0.22);
-const visionWeight = numberField("vision_weight", 1.40);
 const upscaleFactor = numberField("upscale_factor", 2.0);
 const tileGrid = stringField("tile_grid", "auto");
 const tileOverlap = stringField("tile_overlap", "auto (256px)");
 const tileBatchSize = numberField("tile_batch_size", 1);
 const textureInjection = numberField("texture_injection", 0.20);
+const visionWeight = numberField("vision_weight", 1.40);
 const colorMatch = stringField("color_match", "none");
 const identityLoraName = stringField("identity_lora_name", "none");
 const identityLoraStrength = numberField("identity_lora_strength", 1.0);
 
-// Options from underlying ComfyUI widgets
+// Options from ComfyUI backend widgets
 const controlOptions = computed(() => comboOptions("control_after_generate", ["fixed", "increment", "decrement", "randomize"]));
 const tileGridOptions = computed(() => comboOptions("tile_grid", ["auto", "1x1", "1x2", "2x1", "2x2", "2x3", "3x2", "3x3", "4x4"]));
 const tileOverlapOptions = computed(() => comboOptions("tile_overlap", ["auto (256px)", "128px", "192px", "256px", "384px", "512px"]));
@@ -68,7 +68,7 @@ const loraOptions = computed(() => comboOptions("identity_lora_name", ["none"]))
 
 <template>
   <div class="fil-krea2-root">
-    <!-- Prompt Text Area -->
+    <!-- Prompt -->
     <FilTextArea
       :ref="(el: unknown) => setFieldEl('prompt', el)"
       v-model="prompt"
@@ -79,55 +79,55 @@ const loraOptions = computed(() => comboOptions("identity_lora_name", ["none"]))
       :title="linkedTip('prompt', t('krea2_prompt', 'Positive prompt describing desired texture and detail.'))"
     />
 
-    <!-- Seed & Control After Generate -->
-    <div class="fil-krea2-grid">
-      <FilNumberInput
-        :ref="(el: unknown) => setFieldEl('seed', el)"
-        v-model="seed"
-        :min="0"
-        :max="0xFFFFFFFFFFFFFFFF"
-        :step="1"
-        :disabled="isLinked('seed')"
-        :label="t('krea2_p_seed', '🌱 Seed')"
-        inline-label
-        :title="linkedTip('seed', t('krea2_seed', 'Random seed for diffusion noise.'))"
-      />
-      <FilSelect
-        v-model="controlAfterGenerate"
-        :options="controlOptions"
-        :disabled="isLinked('seed')"
-        :label="t('krea2_p_after_gen', '🔁 Cycle')"
-        inline-label
-        :title="t('ksp_after_generate_tt', 'What ComfyUI does to the seed after queue.')"
-      />
-    </div>
+    <!-- Seed -->
+    <FilNumberInput
+      :ref="(el: unknown) => setFieldEl('seed', el)"
+      v-model="seed"
+      :min="0"
+      :max="0xFFFFFFFFFFFFFFFF"
+      :step="1"
+      :disabled="isLinked('seed')"
+      :label="t('krea2_p_seed', '🌱 Seed')"
+      inline-label
+      :title="linkedTip('seed', t('krea2_seed', 'Random seed for diffusion noise.'))"
+    />
 
-    <!-- Steps & Denoise -->
-    <div class="fil-krea2-grid">
-      <FilNumberInput
-        :ref="(el: unknown) => setFieldEl('steps', el)"
-        v-model="steps"
-        :min="1"
-        :max="50"
-        :step="1"
-        :disabled="isLinked('steps')"
-        :label="t('krea2_p_steps', '🪜 Steps')"
-        inline-label
-        :title="linkedTip('steps', t('krea2_steps', 'Sampling steps (8 is optimal for Krea2).'))"
-      />
-      <FilSlider
-        :ref="(el: unknown) => setFieldEl('denoise', el)"
-        :model-value="denoise"
-        :min="0"
-        :max="1"
-        :step="0.01"
-        :disabled="isLinked('denoise')"
-        :label="t('krea2_p_denoise', '🌫️ Denoise')"
-        inline-label
-        :title="linkedTip('denoise', t('krea2_denoise', 'Denoising strength (0.20-0.25 recommended).'))"
-        @update:model-value="(v: number) => (denoise = v)"
-      />
-    </div>
+    <!-- After Generate -->
+    <FilSelect
+      v-model="controlAfterGenerate"
+      :options="controlOptions"
+      :disabled="isLinked('seed')"
+      :label="t('krea2_p_after_gen', '🔁 After generate')"
+      inline-label
+      :title="t('ksp_after_generate_tt', 'What ComfyUI does to the seed after queue.')"
+    />
+
+    <!-- Steps -->
+    <FilNumberInput
+      :ref="(el: unknown) => setFieldEl('steps', el)"
+      v-model="steps"
+      :min="1"
+      :max="50"
+      :step="1"
+      :disabled="isLinked('steps')"
+      :label="t('krea2_p_steps', '🪜 Steps')"
+      inline-label
+      :title="linkedTip('steps', t('krea2_steps', 'Sampling steps (8 is optimal for Krea2).'))"
+    />
+
+    <!-- Denoise -->
+    <FilSlider
+      :ref="(el: unknown) => setFieldEl('denoise', el)"
+      :model-value="denoise"
+      :min="0"
+      :max="1"
+      :step="0.01"
+      :disabled="isLinked('denoise')"
+      :label="t('krea2_p_denoise', '🌫️ Denoise')"
+      inline-label
+      :title="linkedTip('denoise', t('krea2_denoise', 'Denoising strength (0.20-0.25 recommended).'))"
+      @update:model-value="(v: number) => (denoise = v)"
+    />
 
     <!-- Upscale Factor -->
     <FilSlider
@@ -137,59 +137,48 @@ const loraOptions = computed(() => comboOptions("identity_lora_name", ["none"]))
       :max="8"
       :step="0.1"
       :disabled="isLinked('upscale_factor')"
-      :label="t('krea2_p_factor', '🔍 Upscale Factor')"
+      :label="t('krea2_p_factor', '🔍 Upscale factor')"
       inline-label
       :title="linkedTip('upscale_factor', t('krea2_upscale_factor', 'Target size multiplier (e.g. 2.0x).'))"
       @update:model-value="(v: number) => (upscaleFactor = v)"
     />
 
-    <!-- Tile Grid & Overlap -->
-    <div class="fil-krea2-grid">
-      <FilSelect
-        :ref="(el: unknown) => setFieldEl('tile_grid', el)"
-        v-model="tileGrid"
-        :options="tileGridOptions"
-        :disabled="isLinked('tile_grid')"
-        :label="t('krea2_p_grid', '🔲 Grid')"
-        inline-label
-        :title="linkedTip('tile_grid', t('krea2_tile_grid', 'Tiling layout (auto adapts to resolution).'))"
-      />
-      <FilSelect
-        :ref="(el: unknown) => setFieldEl('tile_overlap', el)"
-        v-model="tileOverlap"
-        :options="tileOverlapOptions"
-        :disabled="isLinked('tile_overlap')"
-        :label="t('krea2_p_overlap', '🔲 Overlap')"
-        inline-label
-        :title="linkedTip('tile_overlap', t('krea2_tile_overlap', 'Overlap between neighbouring tiles.'))"
-      />
-    </div>
+    <!-- Tile Grid -->
+    <FilSelect
+      :ref="(el: unknown) => setFieldEl('tile_grid', el)"
+      v-model="tileGrid"
+      :options="tileGridOptions"
+      :disabled="isLinked('tile_grid')"
+      :label="t('krea2_p_grid', '🔲 Tile grid')"
+      inline-label
+      :title="linkedTip('tile_grid', t('krea2_tile_grid', 'Tiling layout (auto adapts to resolution).'))"
+    />
 
-    <!-- Tile Batch Size & Color Match -->
-    <div class="fil-krea2-grid">
-      <FilNumberInput
-        :ref="(el: unknown) => setFieldEl('tile_batch_size', el)"
-        v-model="tileBatchSize"
-        :min="1"
-        :max="8"
-        :step="1"
-        :disabled="isLinked('tile_batch_size')"
-        :label="t('krea2_p_batch', '📦 Batch')"
-        inline-label
-        :title="linkedTip('tile_batch_size', t('krea2_batch_size', 'Tiles evaluated in parallel per step.'))"
-      />
-      <FilSelect
-        :ref="(el: unknown) => setFieldEl('color_match', el)"
-        v-model="colorMatch"
-        :options="colorMatchOptions"
-        :disabled="isLinked('color_match')"
-        :label="t('krea2_p_colormatch', '🎨 Color')"
-        inline-label
-        :title="linkedTip('color_match', t('krea2_color_match', 'Locks color palette/tones to source image.'))"
-      />
-    </div>
+    <!-- Tile Overlap -->
+    <FilSelect
+      :ref="(el: unknown) => setFieldEl('tile_overlap', el)"
+      v-model="tileOverlap"
+      :options="tileOverlapOptions"
+      :disabled="isLinked('tile_overlap')"
+      :label="t('krea2_p_overlap', '🔲 Tile overlap')"
+      inline-label
+      :title="linkedTip('tile_overlap', t('krea2_tile_overlap', 'Overlap between neighbouring tiles.'))"
+    />
 
-    <!-- Edge-Aware Texture & Vision Weight -->
+    <!-- Tile Batch Size -->
+    <FilNumberInput
+      :ref="(el: unknown) => setFieldEl('tile_batch_size', el)"
+      v-model="tileBatchSize"
+      :min="1"
+      :max="8"
+      :step="1"
+      :disabled="isLinked('tile_batch_size')"
+      :label="t('krea2_p_batch', '📦 Tile batch size')"
+      inline-label
+      :title="linkedTip('tile_batch_size', t('krea2_batch_size', 'Tiles evaluated in parallel per step.'))"
+    />
+
+    <!-- Edge-Aware Texture -->
     <FilSlider
       :ref="(el: unknown) => setFieldEl('texture_injection', el)"
       :model-value="textureInjection"
@@ -197,12 +186,13 @@ const loraOptions = computed(() => comboOptions("identity_lora_name", ["none"]))
       :max="1"
       :step="0.02"
       :disabled="isLinked('texture_injection')"
-      :label="t('krea2_p_texture', '⚡ Edge Texture')"
+      :label="t('krea2_p_texture', '⚡ Edge texture')"
       inline-label
       :title="linkedTip('texture_injection', t('krea2_texture_injection', 'Adaptive Sobel sharpness on edges without flat noise.'))"
       @update:model-value="(v: number) => (textureInjection = v)"
     />
 
+    <!-- Vision Weight -->
     <FilSlider
       :ref="(el: unknown) => setFieldEl('vision_weight', el)"
       :model-value="visionWeight"
@@ -210,36 +200,47 @@ const loraOptions = computed(() => comboOptions("identity_lora_name", ["none"]))
       :max="3"
       :step="0.05"
       :disabled="isLinked('vision_weight')"
-      :label="t('krea2_p_vision', '👁️ Vision Weight')"
+      :label="t('krea2_p_vision', '👁️ Vision weight')"
       inline-label
       :title="linkedTip('vision_weight', t('krea2_vision_weight', 'Attention weight for image vision tokens.'))"
       @update:model-value="(v: number) => (visionWeight = v)"
     />
 
-    <!-- LoRA & Strength -->
-    <div class="fil-krea2-grid">
-      <FilSelect
-        :ref="(el: unknown) => setFieldEl('identity_lora_name', el)"
-        v-model="identityLoraName"
-        :options="loraOptions"
-        :disabled="isLinked('identity_lora_name')"
-        :label="t('krea2_p_lora', '🧬 LoRA')"
-        inline-label
-        :title="linkedTip('identity_lora_name', t('krea2_identity_lora_name', 'Optional identity LoRA.'))"
-      />
-      <FilSlider
-        :ref="(el: unknown) => setFieldEl('identity_lora_strength', el)"
-        :model-value="identityLoraStrength"
-        :min="0"
-        :max="2"
-        :step="0.05"
-        :disabled="isLinked('identity_lora_strength')"
-        :label="t('krea2_p_lora_str', '⚖️ Str')"
-        inline-label
-        :title="linkedTip('identity_lora_strength', t('krea2_identity_lora_strength', 'Weight of identity LoRA.'))"
-        @update:model-value="(v: number) => (identityLoraStrength = v)"
-      />
-    </div>
+    <!-- Color Match -->
+    <FilSelect
+      :ref="(el: unknown) => setFieldEl('color_match', el)"
+      v-model="colorMatch"
+      :options="colorMatchOptions"
+      :disabled="isLinked('color_match')"
+      :label="t('krea2_p_colormatch', '🎨 Color match')"
+      inline-label
+      :title="linkedTip('color_match', t('krea2_color_match', 'Locks color palette/tones to source image.'))"
+    />
+
+    <!-- Identity LoRA -->
+    <FilSelect
+      :ref="(el: unknown) => setFieldEl('identity_lora_name', el)"
+      v-model="identityLoraName"
+      :options="loraOptions"
+      :disabled="isLinked('identity_lora_name')"
+      :label="t('krea2_p_lora', '🧬 Identity LoRA')"
+      inline-label
+      :title="linkedTip('identity_lora_name', t('krea2_identity_lora_name', 'Optional identity LoRA.'))"
+    />
+
+    <!-- LoRA Strength -->
+    <FilSlider
+      :ref="(el: unknown) => setFieldEl('identity_lora_strength', el)"
+      :model-value="identityLoraStrength"
+      :min="0"
+      :max="2"
+      :step="0.05"
+      :disabled="isLinked('identity_lora_strength')"
+      :label="t('krea2_p_lora_str', '⚖️ LoRA strength')"
+      inline-label
+      :title="linkedTip('identity_lora_strength', t('krea2_identity_lora_strength', 'Weight of identity LoRA.'))"
+      @update:model-value="(v: number) => (identityLoraStrength = v)"
+    />
   </div>
 </template>
 
@@ -250,11 +251,5 @@ const loraOptions = computed(() => comboOptions("identity_lora_name", ["none"]))
   gap: var(--fil-row-gap, 6px);
   width: 100%;
   box-sizing: border-box;
-}
-
-.fil-krea2-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--fil-row-gap, 6px);
 }
 </style>
