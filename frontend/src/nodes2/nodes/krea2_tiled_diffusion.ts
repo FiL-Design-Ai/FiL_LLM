@@ -52,8 +52,8 @@ export const krea2TiledDiffusionNode: NodeModule = {
   id: "FiLKrea2TiledDiffusion",
   register(nodeType: LGraphNodeType, _nodeData: ComfyNodeData): void {
     registerStyledNode(nodeType, {
-      minSize: [330, 440],
-      initialWidth: 330,
+      minSize: [320, 500],
+      initialWidth: 320,
       family: "image",
       description: "Ultra-high-definition tiled upscale with RoPE canvas coordinates, edge-aware adaptive texture and color matching.",
       badges: [{ text: "krea2", color: "#62c987", text_color: "#1a1a1a" }],
@@ -95,7 +95,7 @@ export const krea2TiledDiffusionNode: NodeModule = {
       node._filKrea2State = state;
 
       installFilStatePersistence(node, state);
-      addFilDomWidget(node, "fil_krea2_view", Krea2Vue, { state, height: 440 });
+      addFilDomWidget(node, "fil_krea2_view", Krea2Vue, { state, height: 500, growable: true });
       exposeWidgetInputSockets(this, KREA2_SOCKET_INPUTS);
       return result;
     };
