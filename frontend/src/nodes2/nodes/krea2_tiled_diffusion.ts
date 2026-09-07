@@ -52,8 +52,8 @@ export const krea2TiledDiffusionNode: NodeModule = {
   id: "FiLKrea2TiledDiffusion",
   register(nodeType: LGraphNodeType, _nodeData: ComfyNodeData): void {
     registerStyledNode(nodeType, {
-      minSize: [310, 560],
-      initialWidth: 310,
+      minSize: [320, 560],
+      initialWidth: 320,
       family: "image",
       description: "Ultra-high-definition tiled upscale with RoPE canvas coordinates, edge-aware adaptive texture and color matching.",
       badges: [{ text: "krea2", color: "#62c987", text_color: "#1a1a1a" }],

@@ -30,7 +30,7 @@ def _module_presentation() -> dict[str, dict[str, object]]:
     out: dict[str, dict[str, object]] = {}
     for ts in NODES_TS_DIR.glob("*.ts"):
         text = ts.read_text(encoding="utf-8")
-        ids = re.findall(r'id:\s*"(\w+)"', text)
+        ids = re.findall(r'\bid:\s*"(\w+)"', text)
         if not ids:
             continue
         entry: dict[str, object] = {"file": ts.name}

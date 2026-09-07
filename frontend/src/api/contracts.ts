@@ -6407,7 +6407,7 @@ export const NODE_CONTRACTS: Record<string, NodeContract> = {
   ],
   "min_size": [
     320,
-    420
+    560
   ],
   "family": "image"
 },

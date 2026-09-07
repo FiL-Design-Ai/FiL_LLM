@@ -15990,7 +15990,7 @@ var Fw, Iw = n((() => {
 				name: "latent",
 				type: "LATENT"
 			}],
-			min_size: [320, 420],
+			min_size: [320, 560],
 			family: "image"
 		}
 	}, Object.keys(rT);
@@ -23297,8 +23297,8 @@ var MP, NP, PP, FP = n((() => {
 		id: "FiLKrea2TiledDiffusion",
 		register(e, t) {
 			pu(e, {
-				minSize: [310, 560],
-				initialWidth: 310,
+				minSize: [320, 560],
+				initialWidth: 320,
 				family: "image",
 				description: "Ultra-high-definition tiled upscale with RoPE canvas coordinates, edge-aware adaptive texture and color matching.",
 				badges: [{

@@ -346,18 +346,6 @@ OPENROUTER_VERIFIED_NSFW_MODELS = (
     "baidu/ernie-4.5-vl-424b-a47b",
     "bytedance/ui-tars-1.5-7b",
     "minimax/minimax-01",
-    "google/gemini-2.5-flash",
-    "google/gemini-2.5-flash-image",
-    "google/gemini-2.5-flash-lite",
-    "google/gemini-2.5-pro",
-    "google/gemini-3-flash-preview",
-    "google/gemini-3.1-flash-image",
-    "google/gemini-3.1-flash-image-preview",
-    "google/gemini-3.1-flash-lite",
-    "google/gemini-3.1-flash-lite-image",
-    "google/gemini-3.5-flash-lite",
-    "google/gemini-3.6-flash",
-    "google/gemma-3-4b-it",
 )
 
 
@@ -374,11 +362,6 @@ def is_nsfw_capable(provider: str, model: str, entry: Optional[Dict[str, Any]] =
         return False
 
     prov = (provider or "").strip().lower()
-
-    # Google Gemini models with BLOCK_NONE safety thresholds
-    if prov == "google":
-        if any(g in clean for g in ("flash", "gemma")):
-            return True
 
     # Groq verified unaligned models
     if prov == "groq":
