@@ -253,10 +253,10 @@ const browserItems = computed<BrowserItem[]>(() => {
 const countIf = (skip: "status" | "type" | "tier" | "only" | "content", test: (m: string) => boolean) =>
   currentModels.value.filter((m) => passes(m, skip) && test(m)).length;
 
-const chipVerifiedCount = computed(() => countIf("status", isVerified));
-const chipFavCount = computed(() => countIf("only", (m) => starred(m)));
-const chipVisionCount = computed(() => countIf("type", isVision));
-const chipNsfwCount = computed(() => countIf("content", isNsfw));
+const chipVerifiedCount = computed(() => currentModels.value.filter(isVerified).length);
+const chipFavCount = computed(() => currentModels.value.filter(starred).length);
+const chipVisionCount = computed(() => currentModels.value.filter(isVision).length);
+const chipNsfwCount = computed(() => currentModels.value.filter(isNsfw).length);
 
 const hasActiveFilters = computed(() => {
   return (
@@ -300,7 +300,7 @@ const sidebarSections = computed<BrowserSidebarSection[]>(() => {
       heading: t("pmp_group_status", "Status"),
       rows: [
         { id: "status:all", label: t("pmp_status_all", "All models"), count: countIf("status", () => true) },
-        { id: "status:verified", label: t("pmp_status_verified", "⚡ Verified"), icon: "⚡", count: countIf("status", isVerified) },
+        { id: "status:verified", label: t("pmp_status_verified", "Verified"), icon: "⚡", count: countIf("status", isVerified) },
       ],
     },
     {
@@ -355,8 +355,8 @@ const sidebarSections = computed<BrowserSidebarSection[]>(() => {
     heading: t("pmp_group_content", "Content"),
     rows: [
       { id: "content:all", label: t("pmp_content_all", "All content"), count: countIf("content", () => true) },
-      { id: "content:nsfw", label: t("pmp_content_nsfw", "🔞 Uncensored (NSFW)"), icon: "🔞", count: countIf("content", isNsfw) },
-      { id: "content:sfw", label: t("pmp_content_sfw", "🛡️ Standard"), icon: "🛡️", count: countIf("content", (m) => !isNsfw(m)) },
+      { id: "content:nsfw", label: t("pmp_content_nsfw", "Uncensored (NSFW)"), icon: "🔞", count: countIf("content", isNsfw) },
+      { id: "content:sfw", label: t("pmp_content_sfw", "Standard"), icon: "🛡️", count: countIf("content", (m) => !isNsfw(m)) },
     ],
   });
 

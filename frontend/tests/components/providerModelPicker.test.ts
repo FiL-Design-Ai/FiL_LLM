@@ -292,7 +292,7 @@ describe("ProviderModelPicker selection", () => {
     expect(modelCard("magnum-v4-72b").textContent).toContain("🔞 NSFW");
     expect(modelCard("gpt-4o").textContent).not.toContain("🔞 NSFW");
 
-    sidebarRow("🔞 Uncensored (NSFW)").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    sidebarRow("Uncensored").dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
     expect(cardCount()).toBe(1);
     expect(modelCard("magnum-v4-72b")).not.toBeNull();
@@ -304,7 +304,7 @@ describe("ProviderModelPicker selection", () => {
     expect(modelCard("qwen3.8-27b").textContent).toContain("⚡ Verified");
     expect(modelCard("broken-model").textContent).not.toContain("⚡ Verified");
 
-    sidebarRow("⚡ Verified").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    sidebarRow("Verified").dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
     expect(cardCount()).toBe(1);
     expect(modelCard("qwen3.8-27b")).not.toBeNull();
