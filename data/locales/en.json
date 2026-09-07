@@ -767,6 +767,17 @@
   "pmp_group_status": "Status",
   "pmp_status_all": "All models",
   "pmp_status_verified": "⚡ Verified",
-  "pmp_badge_verified": "⚡ Verified"
+  "pmp_badge_verified": "⚡ Verified",
+  "pmp_sort_smart": "⚡ Smart (Verified)",
+  "pmp_sort_name_asc": "🔤 Name (A → Z)",
+  "pmp_sort_name_desc": "🔤 Name (Z → A)",
+  "pmp_sort_fav_first": "⭐ Favourites first",
+  "pmp_chip_verified": "Verified",
+  "pmp_chip_fav": "Favourites",
+  "pmp_chip_vision": "Vision",
+  "pmp_chip_nsfw": "NSFW",
+  "pmp_quick_filters": "Quick filters",
+  "pmp_reset": "Reset",
+  "pmp_reset_filters": "Reset all active filters and search"
 }
 

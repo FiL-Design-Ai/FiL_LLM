@@ -309,4 +309,84 @@ describe("ProviderModelPicker selection", () => {
     expect(cardCount()).toBe(1);
     expect(modelCard("qwen3.8-27b")).not.toBeNull();
   });
+
+  it("smart sort puts verified and favourite models ahead of unverified ones", async () => {
+    await openWith("groq", ["zebra-plain", "middle-verified", "alpha-plain"], [], [], ["middle-verified"]);
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(".fb-card"));
+    // In smart mode, verified model "middle-verified" must be first, followed by alphabetical unverified
+    expect(cards[0].textContent).toContain("middle-verified");
+    expect(cards[1].textContent).toContain("alpha-plain");
+    expect(cards[2].textContent).toContain("zebra-plain");
+  });
+
+  it("quick filter chips toggle filters directly from the toolbar", async () => {
+    await openWith("groq", ["model-a", "model-b"], ["model-a"], [], ["model-a"]);
+    expect(cardCount()).toBe(2);
+
+    // Click verified chip
+    const verifiedChip = document.querySelector<HTMLButtonElement>(".pmp-chip-verified")!;
+    expect(verifiedChip).not.toBeNull();
+    verifiedChip.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await nextTick();
+
+    expect(verifiedChip.classList.contains("on")).toBe(true);
+    expect(cardCount()).toBe(1);
+    expect(modelCard("model-a")).not.toBeNull();
+
+    // Toggle off
+    verifiedChip.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await nextTick();
+    expect(verifiedChip.classList.contains("on")).toBe(false);
+    expect(cardCount()).toBe(2);
+  });
+
+  it("allows switching sort mode to alphabetical name-asc and name-desc", async () => {
+    await openWith("groq", ["zebra-plain", "middle-verified", "alpha-plain"], [], [], ["middle-verified"]);
+    const select = document.querySelector<HTMLSelectElement>(".pmp-sort-select")!;
+    expect(select).not.toBeNull();
+
+    select.value = "name-asc";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    await nextTick();
+
+    let cards = Array.from(document.querySelectorAll<HTMLElement>(".fb-card"));
+    expect(cards[0].textContent).toContain("alpha-plain");
+    expect(cards[1].textContent).toContain("middle-verified");
+    expect(cards[2].textContent).toContain("zebra-plain");
+
+    select.value = "name-desc";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    await nextTick();
+
+    cards = Array.from(document.querySelectorAll<HTMLElement>(".fb-card"));
+    expect(cards[0].textContent).toContain("zebra-plain");
+    expect(cards[1].textContent).toContain("middle-verified");
+    expect(cards[2].textContent).toContain("alpha-plain");
+  });
+
+  it("displays accurate counts on quick chips and provides a one-click reset button", async () => {
+    await openWith("groq", ["model-v", "model-plain"], ["model-v"], [], ["model-v"]);
+    const verifiedChip = document.querySelector<HTMLButtonElement>(".pmp-chip-verified")!;
+    expect(verifiedChip.querySelector(".pmp-chip-count")?.textContent).toBe("1");
+
+    // Initially, no reset button since all filters are "all" and search is empty
+    expect(document.querySelector(".pmp-chip-reset")).toBeNull();
+
+    // Turn on verified filter
+    verifiedChip.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await nextTick();
+
+    // Reset button should now be visible
+    const resetBtn = document.querySelector<HTMLButtonElement>(".pmp-chip-reset")!;
+    expect(resetBtn).not.toBeNull();
+    expect(cardCount()).toBe(1);
+
+    // Click reset button
+    resetBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await nextTick();
+
+    // Filters should be reset, reset button disappears, both cards visible again
+    expect(document.querySelector(".pmp-chip-reset")).toBeNull();
+    expect(cardCount()).toBe(2);
+  });
 });

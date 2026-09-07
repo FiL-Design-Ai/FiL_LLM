@@ -767,6 +767,17 @@
   "pmp_group_status": "Статус",
   "pmp_status_all": "Все модели",
   "pmp_status_verified": "⚡ Работающие",
-  "pmp_badge_verified": "⚡ Проверено"
+  "pmp_badge_verified": "⚡ Проверено",
+  "pmp_sort_smart": "⚡ Умная (проверенные)",
+  "pmp_sort_name_asc": "🔤 Имя (А → Я)",
+  "pmp_sort_name_desc": "🔤 Имя (Я → А)",
+  "pmp_sort_fav_first": "⭐ Сначала избранные",
+  "pmp_chip_verified": "Проверенные",
+  "pmp_chip_fav": "Избранное",
+  "pmp_chip_vision": "Vision",
+  "pmp_chip_nsfw": "NSFW",
+  "pmp_quick_filters": "Быстрые фильтры",
+  "pmp_reset": "Сбросить",
+  "pmp_reset_filters": "Сбросить все активные фильтры и поиск"
 }
 

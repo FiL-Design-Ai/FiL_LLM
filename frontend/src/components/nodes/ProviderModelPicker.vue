@@ -81,12 +81,14 @@ const STORAGE_KEY_TYPE = "fil_model_picker_type_filter";
 const STORAGE_KEY_TIER = "fil_model_picker_tier_filter";
 const STORAGE_KEY_ONLY = "fil_model_picker_only_filter";
 const STORAGE_KEY_CONTENT = "fil_model_picker_content_filter";
+const STORAGE_KEY_SORT = "fil_model_picker_sort_mode";
 
 type StatusFilter = "all" | "verified";
 type TypeFilter = "all" | "vision" | "text";
 type TierFilter = "all" | "free" | "paid" | "local";
 type OnlyFilter = "all" | "fav" | "recent";
 type ContentFilter = "all" | "nsfw" | "sfw";
+export type SortMode = "smart" | "name-asc" | "name-desc" | "verified" | "fav";
 
 // The filters survive closing the picker, the way the view mode already did:
 // somebody who narrowed 367 models to free vision ones should not redo it on
@@ -96,6 +98,7 @@ const typeFilter = ref<TypeFilter>((recall(STORAGE_KEY_TYPE) as TypeFilter) || "
 const tierFilter = ref<TierFilter>((recall(STORAGE_KEY_TIER) as TierFilter) || "all");
 const onlyFilter = ref<OnlyFilter>((recall(STORAGE_KEY_ONLY) as OnlyFilter) || "all");
 const contentFilter = ref<ContentFilter>((recall(STORAGE_KEY_CONTENT) as ContentFilter) || "all");
+const sortMode = ref<SortMode>((recall(STORAGE_KEY_SORT) as SortMode) || "smart");
 const viewMode = ref<"list" | "grid">((recall(STORAGE_KEY_VIEW) as "list" | "grid") || "list");
 
 watch(statusFilter, (v) => remember(STORAGE_KEY_STATUS, v));
@@ -103,6 +106,7 @@ watch(typeFilter, (v) => remember(STORAGE_KEY_TYPE, v));
 watch(tierFilter, (v) => remember(STORAGE_KEY_TIER, v));
 watch(onlyFilter, (v) => remember(STORAGE_KEY_ONLY, v));
 watch(contentFilter, (v) => remember(STORAGE_KEY_CONTENT, v));
+watch(sortMode, (v) => remember(STORAGE_KEY_SORT, v));
 watch(viewMode, (v) => remember(STORAGE_KEY_VIEW, v));
 
 /** Where this provider's recents are kept — the same id under two providers is
@@ -207,17 +211,72 @@ function toItem(m: string): BrowserItem {
   return { id: m, label: m, title: m, icon: isVision(m) ? "👁" : "📝", tags: tagsFor(m) };
 }
 
-/** Filtered, then ranked. Built once — mapping to items, back to ids and to
- *  items again ran `tagsFor` twice per model on every keystroke. */
+function compareModels(a: string, b: string): number {
+  if (sortMode.value === "name-asc") {
+    return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+  }
+  if (sortMode.value === "name-desc") {
+    return b.localeCompare(a, undefined, { numeric: true, sensitivity: "base" });
+  }
+  if (sortMode.value === "verified") {
+    const va = isVerified(a) ? 1 : 0;
+    const vb = isVerified(b) ? 1 : 0;
+    if (va !== vb) return vb - va;
+    return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+  }
+  if (sortMode.value === "fav") {
+    const fa = starred(a) ? 1 : 0;
+    const fb = starred(b) ? 1 : 0;
+    if (fa !== fb) return fb - fa;
+    return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+  }
+  // Default "smart" sort:
+  // 1. Favourites first (100)
+  // 2. Verified models (50)
+  // 3. Alphabetical tie-break
+  const scoreA = (starred(a) ? 100 : 0) + (isVerified(a) ? 50 : 0);
+  const scoreB = (starred(b) ? 100 : 0) + (isVerified(b) ? 50 : 0);
+  if (scoreA !== scoreB) return scoreB - scoreA;
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
+/** Filtered, then sorted by sortMode, then ranked if a search query is typed. */
 const browserItems = computed<BrowserItem[]>(() => {
-  const items = currentModels.value.filter((m) => passes(m, null)).map(toItem);
-  return rankItems(items, searchQuery.value, SEARCH_FIELDS);
+  const filtered = currentModels.value.filter((m) => passes(m, null));
+  filtered.sort(compareModels);
+  const items = filtered.map(toItem);
+  return rankItems(items, searchQuery.value, SEARCH_FIELDS, (a, b) => compareModels(a.id, b.id));
 });
 
-// ── the left column ──────────────────────────────────────────────────────────
+// ── the left column & quick toolbar chips ────────────────────────────────────
 
 const countIf = (skip: "status" | "type" | "tier" | "only" | "content", test: (m: string) => boolean) =>
   currentModels.value.filter((m) => passes(m, skip) && test(m)).length;
+
+const chipVerifiedCount = computed(() => countIf("status", isVerified));
+const chipFavCount = computed(() => countIf("only", (m) => starred(m)));
+const chipVisionCount = computed(() => countIf("type", isVision));
+const chipNsfwCount = computed(() => countIf("content", isNsfw));
+
+const hasActiveFilters = computed(() => {
+  return (
+    statusFilter.value !== "all" ||
+    onlyFilter.value !== "all" ||
+    typeFilter.value !== "all" ||
+    tierFilter.value !== "all" ||
+    contentFilter.value !== "all" ||
+    Boolean(searchQuery.value.trim())
+  );
+});
+
+function resetAllFilters() {
+  statusFilter.value = "all";
+  onlyFilter.value = "all";
+  typeFilter.value = "all";
+  tierFilter.value = "all";
+  contentFilter.value = "all";
+  searchQuery.value = "";
+}
 
 const sidebarSections = computed<BrowserSidebarSection[]>(() => {
   const models = currentModels.value;
@@ -458,6 +517,74 @@ function confirmSelection(id?: string) {
     </template>
 
     <template #toolbar>
+      <div class="pmp-sort">
+        <select v-model="sortMode" class="pmp-sort-select" :aria-label="t('pmp_sort_smart', 'Sort')">
+          <option value="smart">{{ t('pmp_sort_smart', '⚡ Smart (Verified)') }}</option>
+          <option value="name-asc">{{ t('pmp_sort_name_asc', '🔤 Name (A → Z)') }}</option>
+          <option value="name-desc">{{ t('pmp_sort_name_desc', '🔤 Name (Z → A)') }}</option>
+          <option value="fav">{{ t('pmp_sort_fav_first', '⭐ Favourites first') }}</option>
+        </select>
+      </div>
+
+      <div class="pmp-chips" :aria-label="t('pmp_quick_filters', 'Quick filters')">
+        <button
+          type="button"
+          class="pmp-chip pmp-chip-verified"
+          :class="{ on: statusFilter === 'verified', zero: chipVerifiedCount === 0 }"
+          :title="t('pmp_status_verified', '⚡ Verified models only')"
+          @click="statusFilter = statusFilter === 'verified' ? 'all' : 'verified'"
+        >
+          <span class="pmp-chip-icon">⚡</span>
+          <span class="pmp-chip-label">{{ t('pmp_chip_verified', 'Verified') }}</span>
+          <span class="pmp-chip-count">{{ chipVerifiedCount }}</span>
+        </button>
+        <button
+          type="button"
+          class="pmp-chip pmp-chip-fav"
+          :class="{ on: onlyFilter === 'fav', zero: chipFavCount === 0 }"
+          :title="t('pmp_only_fav', 'Favourites only')"
+          @click="onlyFilter = onlyFilter === 'fav' ? 'all' : 'fav'"
+        >
+          <span class="pmp-chip-icon">⭐</span>
+          <span class="pmp-chip-label">{{ t('pmp_chip_fav', 'Favourites') }}</span>
+          <span class="pmp-chip-count">{{ chipFavCount }}</span>
+        </button>
+        <button
+          type="button"
+          class="pmp-chip pmp-chip-vision"
+          :class="{ on: typeFilter === 'vision', zero: chipVisionCount === 0 }"
+          :title="t('pmp_type_vision', 'Vision capable models only')"
+          @click="typeFilter = typeFilter === 'vision' ? 'all' : 'vision'"
+        >
+          <span class="pmp-chip-icon">👁</span>
+          <span class="pmp-chip-label">{{ t('pmp_chip_vision', 'Vision') }}</span>
+          <span class="pmp-chip-count">{{ chipVisionCount }}</span>
+        </button>
+        <button
+          type="button"
+          class="pmp-chip pmp-chip-nsfw"
+          :class="{ on: contentFilter === 'nsfw', zero: chipNsfwCount === 0 }"
+          :title="t('pmp_content_nsfw', 'Uncensored (NSFW) models only')"
+          @click="contentFilter = contentFilter === 'nsfw' ? 'all' : 'nsfw'"
+        >
+          <span class="pmp-chip-icon">🔞</span>
+          <span class="pmp-chip-label">{{ t('pmp_chip_nsfw', 'NSFW') }}</span>
+          <span class="pmp-chip-count">{{ chipNsfwCount }}</span>
+        </button>
+        <button
+          v-if="hasActiveFilters"
+          type="button"
+          class="pmp-chip pmp-chip-reset"
+          :title="t('pmp_reset_filters', 'Reset all active filters and search')"
+          @click="resetAllFilters"
+        >
+          <span class="pmp-chip-icon">✕</span>
+          <span class="pmp-chip-label">{{ t('pmp_reset', 'Reset') }}</span>
+        </button>
+      </div>
+
+      <span class="pmp-sp" />
+
       <span class="pmp-status">
         <span v-if="isLoading" class="pmp-badge loading">⏳ {{ t('pmp_loading', 'Loading…') }}</span>
         <span v-else-if="probe && probe.status && probe.status !== 'available'" class="pmp-badge error">
@@ -516,6 +643,131 @@ function confirmSelection(id?: string) {
 </template>
 
 <style scoped>
+/* ── sort & quick chips in toolbar ── */
+.pmp-sort {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.pmp-sort-select {
+  height: var(--fil-control-h);
+  padding: 0 8px;
+  background: var(--fil-panel-alt);
+  border: 1px solid var(--fil-border);
+  border-radius: var(--fil-field-radius);
+  color: var(--fil-text);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.pmp-sort-select:hover {
+  border-color: var(--fil-accent);
+}
+.pmp-sort-select:focus {
+  border-color: var(--fil-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fil-accent) 30%, transparent);
+}
+
+.pmp-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.pmp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--fil-control-h);
+  padding: 0 8px;
+  background: var(--fil-panel-alt);
+  border: 1px solid var(--fil-border);
+  border-radius: var(--fil-field-radius);
+  color: var(--fil-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+.pmp-chip:hover {
+  background: var(--fil-surface-2);
+  color: var(--fil-text);
+  border-color: color-mix(in srgb, var(--fil-border) 60%, var(--fil-text));
+}
+.pmp-chip.on {
+  background: color-mix(in srgb, var(--fil-accent) 15%, transparent);
+  border-color: var(--fil-accent);
+  color: var(--fil-accent-text);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--fil-accent) 25%, transparent);
+}
+.pmp-chip.pmp-chip-verified.on {
+  background: color-mix(in srgb, var(--fil-ok) 15%, transparent);
+  border-color: var(--fil-ok);
+  color: var(--fil-ok);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--fil-ok) 25%, transparent);
+}
+.pmp-chip.pmp-chip-fav.on {
+  background: color-mix(in srgb, #f59e0b 15%, transparent);
+  border-color: #f59e0b;
+  color: #fbbf24;
+  box-shadow: 0 0 6px color-mix(in srgb, #f59e0b 25%, transparent);
+}
+.pmp-chip.pmp-chip-vision.on {
+  background: color-mix(in srgb, var(--fil-accent) 18%, transparent);
+  border-color: var(--fil-accent);
+  color: var(--fil-accent-text);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--fil-accent) 25%, transparent);
+}
+.pmp-chip.pmp-chip-nsfw.on {
+  background: color-mix(in srgb, var(--fil-warn) 15%, transparent);
+  border-color: var(--fil-warn);
+  color: var(--fil-warn);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--fil-warn) 25%, transparent);
+}
+.pmp-chip-icon {
+  font-size: 11px;
+}
+.pmp-chip-count {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.75;
+  padding: 1px 5px;
+  border-radius: 9px;
+  background: var(--fil-surface-2);
+  line-height: 1;
+}
+.pmp-chip.on .pmp-chip-count {
+  background: rgba(255, 255, 255, 0.18);
+  opacity: 1;
+}
+.pmp-chip.zero {
+  opacity: 0.5;
+}
+.pmp-chip-reset {
+  color: var(--fil-danger);
+  border-color: color-mix(in srgb, var(--fil-danger) 40%, transparent);
+}
+.pmp-chip-reset:hover {
+  background: color-mix(in srgb, var(--fil-danger) 15%, transparent);
+  border-color: var(--fil-danger);
+  color: var(--fil-danger);
+}
+.pmp-sp {
+  flex: 1;
+}
+
+@media (max-width: 900px) {
+  .pmp-chip-label {
+    display: none;
+  }
+}
+
 .pmp-status {
   display: flex;
   align-items: center;
