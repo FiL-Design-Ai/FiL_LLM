@@ -885,7 +885,8 @@ def test_huggingface_and_deepinfra_providers_registered():
     assert "deepseek-ai/DeepSeek-R1-0528" in di_nsfw
 
 
-def test_verified_models_configuration_and_runtime():
+def test_verified_models_configuration_and_runtime(monkeypatch):
+    import requests
     from FiL_Design_ImageMind.common.config import get_verified_models, is_model_verified
     from FiL_Design_ImageMind.common import provider_runtime
 
@@ -909,6 +910,16 @@ def test_verified_models_configuration_and_runtime():
     # Check fallback returns models
     fallback_models, fallback_vision, fallback_nsfw = provider_runtime._curated_fallback("groq")
     assert "qwen/qwen3.8-27b" in fallback_models
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        def get(self, *args, **kwargs):
+            raise requests.ConnectionError("offline")
+
+    monkeypatch.setattr(provider_runtime, "HTTPClient", Client)
+    monkeypatch.setattr(provider_runtime, "get_api_key", lambda provider: "configured")
 
     # Check fetch_models_with_status provides verified_models key
     res = provider_runtime.fetch_models_with_status("groq", force=True)
