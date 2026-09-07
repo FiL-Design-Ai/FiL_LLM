@@ -3,7 +3,7 @@
 FiL_Design_ImageMind v2 поддерживает простую схему подключения:
 
 - Ollama и LM Studio работают как локальные серверы без ключа.
-- OpenAI API, Google, Groq, OpenRouter и Cloudflare используют API key.
+- OpenAI API, Google, Groq, OpenRouter, Cloudflare, Hugging Face и DeepInfra используют API key.
 - OAuth, ChatGPT-подписка и Codex login в этой версии не используются.
 
 ## Настройка через ComfyUI
@@ -53,5 +53,7 @@ data/auth.json
 - Ollama: проверь `http://127.0.0.1:11434` и что Ollama запущен.
 - LM Studio: запусти Local Server, обычно на `http://127.0.0.1:1234`.
 - Cloudflare: нужны одновременно API token и Account ID.
+- Hugging Face: бесплатный токен с правами Read на https://huggingface.co/settings/tokens (кредитная карта не требуется).
+- DeepInfra: API ключ на https://deepinfra.com/dash/api_keys (требует баланса на счёте).
 - `auth_error`: удали старый ключ, сохрани новый и повтори проверку.
 - `rate_limited`: ключ сохранён правильно, но нужно подождать или проверить лимит аккаунта.

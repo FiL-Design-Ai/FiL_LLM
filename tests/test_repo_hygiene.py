@@ -23,7 +23,7 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 # Directory names never worth descending into. `node_modules` is the only one
 # large enough to matter for the walk's cost; `.git` holds object files whose
 # names can coincide with anything.
-PRUNED = {"node_modules", ".git", "__pycache__"}
+PRUNED = {"node_modules", ".git", "__pycache__", "node_112_contents", "node_113_contents"}
 
 # What identifies this package rather than any other Python project. Both are
 # checked: a copy could be partial, and the contract registry is the file the

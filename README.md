@@ -144,9 +144,9 @@ Restart ComfyUI. The nodes appear under **🎨 FiL Design/** in the node browser
 
 > [!IMPORTANT]
 > **Don't forget to configure your API keys in the menu!**
-> Cloud vision and LLM models require an API key to function. Open the **FiL Providers** tab in the ComfyUI sidebar (look for the key icon 🔑 on the sidebar), enter your API keys for the providers you plan to use (Google Gemini, OpenAI, Groq, OpenRouter, Cloudflare), and click **Save**. You can immediately test connection with the **Probe** button.
+> Cloud vision and LLM models require an API key to function. Open the **FiL Providers** tab in the ComfyUI sidebar (look for the key icon 🔑 on the sidebar), enter your API keys for the providers you plan to use (Google Gemini, OpenAI, Groq, OpenRouter, Cloudflare, Hugging Face, DeepInfra), and click **Save**. You can immediately test connection with the **Probe** button.
 
-Seven providers ship in `common/config.py`. Local ones need nothing but a running server; cloud ones
+Nine providers ship in `common/config.py`. Local ones need nothing but a running server; cloud ones
 need a key.
 
 | Provider | Type | Endpoint | Key |
@@ -158,6 +158,8 @@ need a key.
 | ⚡ **Groq** | Cloud | `api.groq.com/openai/v1` | `GROQ_API_KEY` |
 | 🌐 **OpenRouter** | Cloud | `openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
 | ☁️ **Cloudflare Workers AI** | Cloud | per-account endpoint | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` |
+| 🤗 **Hugging Face** | Cloud | `router.huggingface.co/v1` | `HF_TOKEN` (Free, no credit card) |
+| ⚡ **DeepInfra** | Cloud | `api.deepinfra.com/v1/openai` | `DEEPINFRA_API_KEY` |
 
 **Where keys are read from, in order:**
 
@@ -225,7 +227,7 @@ name as a string.
 
 | Input | Type | Default | Range / options |
 |---|---|---|---|
-| `provider` | COMBO | `ollama` | ollama, lmstudio, openai, google, groq, openrouter, cloudflare |
+| `provider` | COMBO | `ollama` | ollama, lmstudio, openai, google, groq, openrouter, cloudflare, huggingface, deepinfra |
 | `model` | COMBO | live list | fetched from the provider |
 | `refresh_models` | BOOLEAN | `false` | re-fetches the model list |
 | `temperature` | FLOAT | `0.7` | 0.0 – 2.0, step 0.05 |
@@ -706,12 +708,12 @@ value untouched; OFF passes `None` on the wire without blocking optional downstr
 >
 > 🔑 **Как настроить API-ключи прямо в интерфейсе ComfyUI:**
 > 1. Откройте вкладку **FiL Providers** с иконкой ключа 🔑 на боковой панели ComfyUI (Sidebar).
-> 2. В карточке нужного провайдера (Google Gemini, OpenAI, Groq, OpenRouter, Cloudflare) вставьте ваш ключ в поле **API-ключ** (API Key).
+> 2. В карточке нужного провайдера (Google Gemini, OpenAI, Groq, OpenRouter, Cloudflare, Hugging Face, DeepInfra) вставьте ваш ключ в поле **API-ключ** (API Key).
 > 3. Нажмите **Сохранить** (Save).
 > 4. Нажмите кнопку **Probe** (Проверить), чтобы моментально протестировать доступность соединения и загрузить список актуальных моделей без запуска очередей генерации.
 >
 > **Альтернативные способы передачи ключей:**
-> - Системные переменные окружения ОС: `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `CLOUDFLARE_API_TOKEN`.
+> - Системные переменные окружения ОС: `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `CLOUDFLARE_API_TOKEN`, `HF_TOKEN`, `DEEPINFRA_API_KEY`.
 > - Файл `API.env` в корне папки узла со строками вида `KEY=value` (файл добавлен в `.gitignore` и защищён от перезаписи при обновлениях).
 >
 > *Локальные провайдеры (Ollama, LM Studio) работают сразу «из коробки» без ключей — достаточно запустить локальный сервер.*
