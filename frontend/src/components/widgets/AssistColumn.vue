@@ -5,8 +5,9 @@
  * (instruction field) and the Prompter (prompt field): the parent owns the
  * text via v-model and says whether it is editable (no link driving it).
  */
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import FilIcon from "./FilIcon.vue";
+import AssistSettingsModal from "./AssistSettingsModal.vue";
 import { ASSIST_OPS, useAssist } from "@/composables/useAssist";
 import { useI18n } from "@/composables/useI18n";
 import type { FilNodeState } from "@/nodes2/filState";
@@ -29,8 +30,9 @@ const text = computed({
   set: (v: string) => emit("update:modelValue", v),
 });
 const editable = computed(() => props.editable);
+const showSettings = ref(false);
 
-const { configLinked, busyOp, assist, canUndo, canRedo, undo, redo } = useAssist(
+const { configLinked, busyOp, assist, canUndo, canRedo, undo, redo, settings, saveAsDefault, resetToDefaults } = useAssist(
   () => props.state.node,
   text,
   editable,
@@ -68,6 +70,21 @@ function buttonTitle(op: (typeof ASSIST_OPS)[number]): string {
       @click="redo">
       <FilIcon name="redo" :size="13" />
     </button>
+    <div class="fil-assist-divider" />
+    <button type="button"
+      class="fil-assist-btn"
+      :title="t('pda_settings_tt', 'Assist settings — style, creativity, length, language.')"
+      @click="showSettings = true">
+      <FilIcon name="gear" :size="13" />
+    </button>
+
+    <AssistSettingsModal
+      v-model:open="showSettings"
+      :settings="settings"
+      :context="context"
+      @save-default="saveAsDefault"
+      @reset-defaults="resetToDefaults"
+    />
   </div>
 </template>
 

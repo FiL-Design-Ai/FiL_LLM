@@ -20,6 +20,35 @@ export interface AssistOp {
   ttFallback: string;
 }
 
+export type AssistStyle = "neutral" | "photorealism" | "cinematic" | "anime" | "precise" | "creative" | "minimal";
+export type AssistLength = "concise" | "balanced" | "detailed" | "targeted" | "comprehensive";
+export type AssistLanguage = "auto" | "en" | "ru";
+
+export interface AssistSettings {
+  style: AssistStyle;
+  creativity: number;
+  length: AssistLength;
+  target_language: AssistLanguage;
+}
+
+export const DEFAULT_PROMPT_SETTINGS: AssistSettings = {
+  style: "neutral",
+  creativity: 0.7,
+  length: "balanced",
+  target_language: "auto",
+};
+
+export const DEFAULT_INSTRUCTION_SETTINGS: AssistSettings = {
+  style: "precise",
+  creativity: 0.7,
+  length: "targeted",
+  target_language: "auto",
+};
+
+export const DEFAULT_ASSIST_SETTINGS: AssistSettings = DEFAULT_PROMPT_SETTINGS;
+
+const STORAGE_KEY_DEFAULT_SETTINGS = "fil_assist_default_settings";
+
 export const ASSIST_OPS: AssistOp[] = [
   { id: "rephrase", icon: "repeat", ttKey: "pda_rephrase_tt", ttFallback: "Rephrase — same meaning, clearer wording." },
   { id: "densify", icon: "contract", ttKey: "pda_densify_tt", ttFallback: "Densify — shorter and denser, no filler." },
@@ -121,6 +150,56 @@ export function useAssist(
     };
   }
 
+  const defaultSettings = context === "prompt" ? DEFAULT_PROMPT_SETTINGS : DEFAULT_INSTRUCTION_SETTINGS;
+  const storageKey = `${STORAGE_KEY_DEFAULT_SETTINGS}_${context}`;
+  const propKey = context === "prompt" ? "fil_assist_prompt_settings" : "fil_assist_instruction_settings";
+
+  function getInitialSettings(): AssistSettings {
+    const node = getNode();
+    const nodeProps = node?.properties as Record<string, unknown> | undefined;
+    const fromProp = nodeProps?.[propKey] ?? nodeProps?.fil_assist_settings;
+    if (fromProp && typeof fromProp === "object") {
+      return { ...defaultSettings, ...(fromProp as Partial<AssistSettings>) };
+    }
+    try {
+      const stored = localStorage.getItem(storageKey) ?? localStorage.getItem(STORAGE_KEY_DEFAULT_SETTINGS);
+      if (stored) {
+        return { ...defaultSettings, ...JSON.parse(stored) };
+      }
+    } catch {
+      // ignore JSON parse or access errors
+    }
+    return { ...defaultSettings };
+  }
+
+  const settings = ref<AssistSettings>(getInitialSettings());
+
+  watch(
+    settings,
+    (val) => {
+      const node = getNode();
+      if (node) {
+        if (!node.properties) node.properties = {};
+        (node.properties as Record<string, unknown>)[propKey] = { ...val };
+      }
+    },
+    { deep: true },
+  );
+
+  function saveAsDefault() {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(settings.value));
+      toast.success(t("pda_saved_default", "Assist settings saved as default for new nodes."));
+    } catch (e) {
+      toast.error(String(e));
+    }
+  }
+
+  function resetToDefaults() {
+    settings.value = { ...defaultSettings };
+    toast.info(t("pda_reset_defaults", "Assist settings reset to factory defaults."));
+  }
+
   async function assist(op: AssistOp) {
     if (busyOp.value || !editable.value) return;
     const cfg = resolveProviderConfig();
@@ -135,7 +214,16 @@ export function useAssist(
     commitText(text.value);
     busyOp.value = op.id;
     try {
-      const res = await providerApi.directorAssist({ operation: op.id, text: text.value, context, ...cfg });
+      const res = await providerApi.directorAssist({
+        operation: op.id,
+        text: text.value,
+        context,
+        ...cfg,
+        style: settings.value.style,
+        length: settings.value.length,
+        target_language: settings.value.target_language,
+        temperature: settings.value.creativity ?? cfg.temperature,
+      });
       if (res.result) {
         commitText(res.result);
         isApplyingHistory = true;
@@ -178,5 +266,5 @@ export function useAssist(
     if (node && originalOnConnectionsChange) node.onConnectionsChange = originalOnConnectionsChange;
   });
 
-  return { configLinked, busyOp, assist, canUndo, canRedo, undo, redo, commitText };
+  return { configLinked, busyOp, assist, canUndo, canRedo, undo, redo, commitText, settings, saveAsDefault, resetToDefaults };
 }

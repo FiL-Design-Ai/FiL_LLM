@@ -16,6 +16,8 @@ export const ICONS = {
   "provider-google": '<svg viewBox="0 0 16 16" fill="none"><text x="8" y="11" text-anchor="middle" font-size="10" font-weight="700" fill="#5a95f4" font-family="sans-serif">G+</text></svg>',
   "provider-openrouter": '<svg viewBox="0 0 16 16" fill="none"><text x="8" y="11" text-anchor="middle" font-size="9" font-weight="700" fill="#9b7cf6" font-family="sans-serif">OR</text></svg>',
   "provider-cloudflare": '<svg viewBox="0 0 16 16" fill="none"><text x="8" y="11" text-anchor="middle" font-size="9" font-weight="700" fill="#f38020" font-family="sans-serif">CF</text></svg>',
+  "provider-huggingface": '<svg viewBox="0 0 16 16" fill="none"><text x="8" y="11" text-anchor="middle" font-size="9" font-weight="700" fill="#ffbd59" font-family="sans-serif">HF</text></svg>',
+  "provider-deepinfra": '<svg viewBox="0 0 16 16" fill="none"><text x="8" y="11" text-anchor="middle" font-size="9" font-weight="700" fill="#06b6d4" font-family="sans-serif">DI</text></svg>',
   // Cinema Rig field icons — line style (stroke, not fill) so they read at
   // 12-14px, fill style to match the set above. Sourced from Bootstrap Icons
   // (MIT) — same library the rest of this file already draws from — except

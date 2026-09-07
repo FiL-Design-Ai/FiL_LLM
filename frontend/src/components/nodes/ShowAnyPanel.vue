@@ -25,6 +25,7 @@ const text = computed({
 });
 
 const isSourceLinked = computed(() => isLinked("source"));
+const isTextLinked = computed(() => isLinked("text"));
 
 const images = computed<ImageDescriptor[]>(() => {
   const raw = props.state.ui?.images;
@@ -146,7 +147,7 @@ const displayDimensions = computed(() => {
         v-model="text"
         :rows="4"
         toolbar
-        :linked="isSourceLinked"
+        :linked="isSourceLinked || isTextLinked"
         :placeholder="t('sa_placeholder', 'Connect any signal to `source` or type text here…')"
         :title="t('sa_tooltip', 'Displays formatted data or text. 1-click copy with live word/char counters.')"
       />

@@ -35,6 +35,17 @@ function updateDynamicShowAnySocket(node: LGraphNode): void {
     }
   }
 
+  // Fallback: if source is unwired, but text input is wired
+  const textSlot = node.inputs?.find((i) => i.name === "text");
+  if (textSlot?.link != null) {
+    outputSlot.type = "STRING";
+    outputSlot.label = "STRING";
+    delete outputSlot.color_on;
+    delete outputSlot.color_off;
+    node.graph?.setDirtyCanvas?.(true, true);
+    return;
+  }
+
   outputSlot.type = "*";
   outputSlot.label = "*";
   delete outputSlot.color_on;
@@ -114,6 +125,101 @@ export const showAnyNode: NodeModule = {
       const result = originalConnectionsChange?.apply(this, args);
       updateDynamicShowAnySocket(this as LGraphNode);
       return result;
+    };
+
+    // Prioritize the universal `source` input for any automatic connection (Search-on-Drag, connectByType, etc.)
+    // while keeping the `text` slot accessible for explicit manual drops.
+    interface HostSlotConnectProto {
+      findInputByType?: (type: unknown) => { index: number; slot: unknown } | undefined;
+      findInputSlot?: (type: string, free_slot?: boolean) => number;
+      findSlotByType?: (isInput: boolean, type: unknown, ...rest: unknown[]) => number;
+      findConnectByTypeSlot?: (isInput: boolean, targetNode: unknown, type: unknown, options: unknown) => number | undefined;
+      connectByType?: (slot: number, source_node: LGraphNode, source_slotType: string, opts?: unknown) => unknown;
+    }
+    const slotConnectProto = p as unknown as HostSlotConnectProto;
+
+    const originalFindInputByType = slotConnectProto.findInputByType;
+    slotConnectProto.findInputByType = function (this: LGraphNode, type: unknown) {
+      const sourceSlot = this.inputs?.find((i) => i.name === "source");
+      if (
+        sourceSlot &&
+        (sourceSlot.link == null ||
+          !!(this.graph as { getLink?: (id: number) => { _dragging?: boolean } })?.getLink?.(sourceSlot.link)?._dragging)
+      ) {
+        const index = this.inputs!.indexOf(sourceSlot);
+        return { index, slot: sourceSlot };
+      }
+      return originalFindInputByType ? originalFindInputByType.call(this, type) : undefined;
+    };
+
+    const originalFindInputSlot = slotConnectProto.findInputSlot;
+    slotConnectProto.findInputSlot = function (this: LGraphNode, type: string, free_slot?: boolean) {
+      const sourceSlotIdx = this.inputs?.findIndex((i) => i.name === "source");
+      if (sourceSlotIdx !== undefined && sourceSlotIdx !== -1) {
+        const slot = this.inputs![sourceSlotIdx];
+        if (!free_slot || slot.link == null) {
+          return sourceSlotIdx;
+        }
+      }
+      return originalFindInputSlot ? originalFindInputSlot.apply(this, [type, free_slot]) : -1;
+    };
+
+    const originalFindSlotByType = slotConnectProto.findSlotByType;
+    slotConnectProto.findSlotByType = function (this: LGraphNode, isInput: boolean, type: unknown, ...rest: unknown[]) {
+      if (isInput) {
+        const sourceSlotIdx = this.inputs?.findIndex((i) => i.name === "source");
+        if (sourceSlotIdx !== undefined && sourceSlotIdx !== -1) {
+          const slot = this.inputs![sourceSlotIdx];
+          const freeSlot = rest[1] as boolean | undefined;
+          if (!freeSlot || slot.link == null) {
+            return sourceSlotIdx;
+          }
+        }
+      }
+      return originalFindSlotByType ? originalFindSlotByType.apply(this, [isInput, type, ...rest]) : -1;
+    };
+
+    const originalFindConnectByTypeSlot = slotConnectProto.findConnectByTypeSlot;
+    slotConnectProto.findConnectByTypeSlot = function (
+      this: LGraphNode,
+      isInput: boolean,
+      targetNode: unknown,
+      type: unknown,
+      options: unknown
+    ) {
+      if (isInput) {
+        const sourceSlotIdx = this.inputs?.findIndex((i) => i.name === "source");
+        if (sourceSlotIdx !== undefined && sourceSlotIdx !== -1) {
+          const slot = this.inputs![sourceSlotIdx];
+          if (slot.link == null) {
+            return sourceSlotIdx;
+          }
+        }
+      }
+      return originalFindConnectByTypeSlot
+        ? originalFindConnectByTypeSlot.apply(this, [isInput, targetNode, type, options])
+        : undefined;
+    };
+
+    const originalConnectByType = slotConnectProto.connectByType;
+    slotConnectProto.connectByType = function (
+      this: LGraphNode,
+      slot: number,
+      source_node: LGraphNode,
+      source_slotType: string,
+      opts?: unknown
+    ) {
+      const sourceSlotIdx = this.inputs?.findIndex((i) => i.name === "source");
+      if (sourceSlotIdx !== undefined && sourceSlotIdx !== -1 && this.inputs![sourceSlotIdx].link == null) {
+        return (this as unknown as { connect: (targetSlot: number, src: LGraphNode, srcSlot: number) => unknown }).connect(
+          sourceSlotIdx,
+          source_node,
+          slot
+        );
+      }
+      return originalConnectByType
+        ? originalConnectByType.apply(this, [slot, source_node, source_slotType, opts])
+        : null;
     };
 
       const originalExecuted = p.onExecuted;

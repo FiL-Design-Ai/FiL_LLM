@@ -256,6 +256,7 @@ description=(
                     timeout=two_stage_timeout,
                     rate_limit_ms=rate_limit_ms,
                 )
+                description = clean_output(description)
             except Exception as stage1_exc:
                 if is_timeout_error(stage1_exc):
                     fb = "two_stage_stage1_timeout"
@@ -317,6 +318,7 @@ description=(
                     timeout=two_stage_timeout,
                     rate_limit_ms=rate_limit_ms,
                 )
+                stage2_result = clean_output(stage2_result)
             except Exception as stage2_exc:
                 if is_timeout_error(stage2_exc):
                     fb = "two_stage_stage2_timeout"
@@ -600,6 +602,9 @@ description=(
         if bool(config.get("unload_llm", False)):
             unload_local_model(provider, model)
 
+        # Clean output BEFORE post-conversion so thinking blocks and meta tags do not consume word limits
+        result = clean_output(result)
+
         if model_needs_prompt_post_conversion(model_type, response_format):
             result, convert_meta = post_convert_prompt(
                 result,
@@ -612,10 +617,9 @@ description=(
                 style_enforcer=_style_enforcer,
                 agent_output_mode=get_agent_output_mode(response_format, agent_key),
             )
+            result = clean_output(result)
         else:
             convert_meta = {}
-
-        result = clean_output(result)
         style_applied = bool(style_block.strip()) or bool(custom_style.strip())
 
         response_outcome = None

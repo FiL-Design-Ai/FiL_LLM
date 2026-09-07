@@ -3,6 +3,7 @@
  * Keep this list in sync with the *.vue files in this folder.
  */
 export { default as AssistColumn } from "./AssistColumn.vue";
+export { default as AssistSettingsModal } from "./AssistSettingsModal.vue";
 export { default as FilBrowser } from "./FilBrowser.vue";
 export { default as FilBrowserSidebar } from "./FilBrowserSidebar.vue";
 export { default as FilButton } from "./FilButton.vue";

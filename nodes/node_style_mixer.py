@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from comfy_api.latest import io
 from ..common.brand import BRAND, CATEGORY_STYLING
+from ..common.clean_output import clean_output
 from ..common.config import is_model_vision_capable
 from ..common.data import get_all_style_keys, get_style_prompt
 from ..common.io_types import FilProviderConfig
@@ -316,7 +317,7 @@ class FiLStyleMixer(io.ComfyNode):
                         "Rules:\n"
                         "- Combine user base prompt, text styles, and image visual references seamlessly.\n"
                         "- Pay close attention to each image's requested focus (e.g. Color & Lighting, Style & Texture, Subject).\n"
-                        "- Output ONLY the final raw prompt text. Zero conversational introduction or meta commentary."
+                        "- Output ONLY the final raw prompt text. Zero conversational introduction, reasoning monologue, or <think> tags."
                     )
 
                     img_descriptions = []
@@ -332,7 +333,7 @@ class FiLStyleMixer(io.ComfyNode):
 
                     b64_list = [b64 for _, _, _, _, b64 in active_images]
                     try:
-                        smart_fusion_prompt = _model_client.generate(
+                        raw_fusion = _model_client.generate(
                             provider=provider,
                             model=model,
                             system_prompt=sys_prompt,
@@ -341,6 +342,7 @@ class FiLStyleMixer(io.ComfyNode):
                             temperature=temperature,
                             rate_limit_ms=rate_limit,
                         ).strip()
+                        smart_fusion_prompt = clean_output(raw_fusion).strip()
                     except Exception as exc:
                         logger.error("[StyleMixer] Vision LLM Fusion failed: %s", exc)
                         smart_fusion_prompt = ""
@@ -351,10 +353,10 @@ class FiLStyleMixer(io.ComfyNode):
                         sys_prompt = (
                             f"Describe the visual details of this image with specific focus on: {focus}.\n"
                             "Be concise (15-25 words), precise, and describe materials, lighting, or style directly for an AI image generator prompt.\n"
-                            "Output ONLY the description string."
+                            "Output ONLY the description string. No thinking process, reasoning monologue, or <think> tags."
                         )
                         try:
-                            desc = _model_client.generate(
+                            raw_desc = _model_client.generate(
                                 provider=provider,
                                 model=model,
                                 system_prompt=sys_prompt,
@@ -363,6 +365,7 @@ class FiLStyleMixer(io.ComfyNode):
                                 temperature=temperature,
                                 rate_limit_ms=rate_limit,
                             ).strip()
+                            desc = clean_output(raw_desc).strip()
                             if desc:
                                 if w >= 0.95:
                                     image_style_parts.append(desc)

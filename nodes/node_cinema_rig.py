@@ -34,6 +34,7 @@ from ..common.cinema_rig import (
     setup_mode_options,
     shot_framing_options,
 )
+from ..common.clean_output import clean_output
 from ..common.io_types import FilProviderConfig
 from ..common.models import ModelClient
 from ..common.processing import is_valid_model_name, normalize_model_name
@@ -53,7 +54,7 @@ _POLISH_SYSTEM_PROMPT = (
     "2. TACTILE PHYSICAL TRUTH: Focus on material weight, surface reflections, optical falloff, and Z-index spatial depth.\n"
     "3. ZERO META-NOISE: Never use buzzwords like 'highly detailed', 'appears to be', '4K', 'masterpiece', or meta-descriptions.\n"
     "4. SPATIAL STACKING: Describe foreground, midground subject, and background depth cleanly.\n"
-    "5. Output ONLY the final raw prompt text. Zero conversational filler or intro."
+    "5. Output ONLY the final raw prompt text. Zero conversational filler, internal reasoning, monologue, or <think> tags."
 )
 
 
@@ -228,7 +229,7 @@ class FiLCinemaRig(io.ComfyNode):
         # call, so a local model may leave memory as soon as it has answered.
         if bool(config.get("unload_llm", False)):
             unload_local_model(provider, model)
-        return polished
+        return clean_output(polished).strip()
 
     @classmethod
     def execute(

@@ -82,3 +82,60 @@ def test_unknown_context_rejected():
     assert validate_assist_request(_valid_body(context="prompt")) is None
     assert validate_assist_request(_valid_body(context="instruction")) is None
 
+
+@pytest.mark.parametrize("style", ["photorealism", "cinematic", "anime", "neutral"])
+def test_style_system_prompt(style):
+    prompt = build_assist_system_prompt("expand", context="prompt", style=style)
+    assert "image generation prompt" in prompt
+    if style == "photorealism":
+        assert "lens optics" in prompt
+    elif style == "cinematic":
+        assert "cinematic film aesthetics" in prompt
+    elif style == "anime":
+        assert "stylized animation" in prompt
+
+
+@pytest.mark.parametrize("length", ["concise", "detailed", "balanced"])
+def test_length_system_prompt(length):
+    prompt = build_assist_system_prompt("rephrase", context="prompt", length=length)
+    if length == "concise":
+        assert "concise, dense, and punchy" in prompt
+    elif length == "detailed":
+        assert "rich, highly descriptive" in prompt
+
+
+@pytest.mark.parametrize("lang,expected", [("en", "strictly in English"), ("ru", "strictly in Russian"), ("auto", "same language")])
+def test_language_system_prompt(lang, expected):
+    prompt = build_assist_system_prompt("rephrase", context="prompt", target_language=lang)
+    assert expected in prompt
+
+
+def test_invalid_style_length_language_rejected():
+    assert validate_assist_request(_valid_body(style="bad_style")) is not None
+    assert validate_assist_request(_valid_body(length="super_long")) is not None
+    assert validate_assist_request(_valid_body(target_language="de")) is not None
+    assert validate_assist_request(_valid_body(style="photorealism", length="concise", target_language="en")) is None
+    assert validate_assist_request(_valid_body(style="precise", length="targeted", target_language="ru")) is None
+
+
+@pytest.mark.parametrize("style,expected", [
+    ("precise", "strict, clear, and unambiguous"),
+    ("creative", "rich atmospheric and artistic nuance"),
+    ("minimal", "concise, punchy bullet-like"),
+])
+def test_instruction_tone_system_prompt(style, expected):
+    prompt = build_assist_system_prompt("expand", context="instruction", style=style)
+    assert "editing instruction" in prompt
+    assert expected in prompt
+
+
+@pytest.mark.parametrize("length,expected", [
+    ("targeted", "Modify strictly the specified visual aspects"),
+    ("comprehensive", "comprehensively orchestrate"),
+])
+def test_instruction_scope_system_prompt(length, expected):
+    prompt = build_assist_system_prompt("rephrase", context="instruction", length=length)
+    assert "editing instruction" in prompt
+    assert expected in prompt
+
+

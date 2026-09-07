@@ -14,6 +14,7 @@ from typing import Any, Dict
 
 from comfy_api.latest import io
 from ..common.brand import BRAND, CATEGORY_ANALYSIS
+from ..common.clean_output import clean_output, strip_thinking
 from ..common.config import is_model_vision_capable
 from ..common.data import LANGUAGES
 from ..common.io_types import FilProviderConfig
@@ -34,6 +35,7 @@ DECOMPOSITION_SYSTEM_PROMPT = (
     "2. LIGHTING: The lighting style, illumination source, color palette, mood, and shadows.\n"
     "3. COMPOSITION: Camera angle, lens type, framing, depth of field, perspective, and shot type.\n"
     "4. STYLE: Artistic medium, texture, material finish, rendering style, rendering engine or photo quality.\n\n"
+    "Do NOT output thinking process, internal monologue, or <think> tags.\n"
     "Respond ONLY with a valid JSON object matching this exact schema:\n"
     "{\n"
     '  "subject": "detailed description of subject",\n'
@@ -215,13 +217,14 @@ class FiLImageDecomposer(io.ComfyNode):
         if bool(config.get("unload_llm", False)):
             unload_local_model(provider, model)
 
-        parsed = _parse_decomposition_json(result_raw)
+        cleaned_raw = strip_thinking(result_raw)
+        parsed = _parse_decomposition_json(cleaned_raw)
         if parsed:
-            subject = str(parsed.get("subject") or "").strip()
-            lighting = str(parsed.get("lighting") or "").strip()
-            composition = str(parsed.get("composition") or "").strip()
-            style = str(parsed.get("style") or "").strip()
-            full_prompt = str(parsed.get("full_prompt") or "").strip()
+            subject = clean_output(str(parsed.get("subject") or "")).strip()
+            lighting = clean_output(str(parsed.get("lighting") or "")).strip()
+            composition = clean_output(str(parsed.get("composition") or "")).strip()
+            style = clean_output(str(parsed.get("style") or "")).strip()
+            full_prompt = clean_output(str(parsed.get("full_prompt") or "")).strip()
 
             if not full_prompt:
                 full_prompt = ", ".join(filter(None, [subject, style, lighting, composition]))
@@ -229,4 +232,5 @@ class FiLImageDecomposer(io.ComfyNode):
             return io.NodeOutput(subject, lighting, composition, style, full_prompt)
         else:
             # Fallback if JSON format was not strictly respected by the model
-            return io.NodeOutput(result_raw, "", "", "", result_raw)
+            fallback_text = clean_output(cleaned_raw).strip()
+            return io.NodeOutput(fallback_text, "", "", "", fallback_text)

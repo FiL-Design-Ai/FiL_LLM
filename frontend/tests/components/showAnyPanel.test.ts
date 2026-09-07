@@ -86,4 +86,25 @@ describe("ShowAnyPanel.vue", () => {
     const toolBtns = wrapper.findAll(".fil-w-tool-btn");
     expect(toolBtns.length).toBe(1);
   });
+
+  it("renders linked textarea when text slot is linked directly", async () => {
+    const state = makeState({ text: "direct text connection" });
+    Object.defineProperty(state, "node", {
+      value: {
+        inputs: [
+          { name: "source", link: null },
+          { name: "text", link: 99 },
+        ],
+      },
+      enumerable: false,
+      configurable: true,
+    });
+    const wrapper = mount(ShowAnyPanel, { props: { state: state as never } });
+    await nextTick();
+    const textarea = wrapper.find("textarea");
+    expect(textarea.exists()).toBe(true);
+    expect(textarea.element.value).toBe("direct text connection");
+    expect(textarea.classes()).toContain("is-linked");
+    expect(textarea.attributes("readonly")).toBeDefined();
+  });
 });

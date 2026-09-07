@@ -32,7 +32,58 @@ CLEANUP_PATTERNS: List[Tuple[str, str]] = [
     # "Вот" survives.
     (r"^\s*(Вот|Ниже)\s+(?:несколько\s+|мой\s+|краткое\s+)?(вариант|промпт|описани|запрос)[^\n]*:\s*", ""),
     (r"^(Описание|Промпт|Запрос|Описание изображения|Финальный промпт)\s*:\s*", ""),
+    # Explicit prompt label prefixes from reasoning models
+    (r"^\s*(?:\*\*|#+)?\s*(?:Prompt|Final Prompt|Image Prompt|Positive Prompt|Generated Prompt)(?:\*\*|#+)?\s*:\s*", ""),
 ]
+
+THINKING_TAGS = ("think", "thought", "reasoning", "analysis_scratchpad", "antml:thought", "plan")
+
+
+def strip_thinking(text: str) -> str:
+    """Safely remove thinking/reasoning blocks (both closed and unclosed tags, plus untagged preambles)."""
+    if not text:
+        return ""
+
+    tag_pattern = "|".join(re.escape(t) for t in THINKING_TAGS)
+
+    # 1. Closed thinking tags: <think>...</think>
+    text = re.sub(rf"<({tag_pattern})[^>]*>.*?</\1>", "", text, flags=re.DOTALL | re.IGNORECASE)
+
+    # 2. Unclosed thinking tags (e.g. DeepSeek-R1 ran out of tokens before closing the tag)
+    unclosed_match = re.search(rf"<({tag_pattern})[^>]*>", text, flags=re.IGNORECASE)
+    if unclosed_match:
+        tag_start = unclosed_match.start()
+        after_tag = text[unclosed_match.end():]
+        # Check if the model transitioned into the prompt despite not closing the tag
+        prompt_transition = re.search(
+            r"(?:(?:\*\*|#+)?\s*(?:Final\s+)?Prompt\s*(?:\*\*|#+)?:|\n```(?:\w+)?\n?)\s*(.+)",
+            after_tag,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        if prompt_transition:
+            text = text[:tag_start] + " " + prompt_transition.group(1)
+        else:
+            # Entire remaining text was thinking cut off mid-thought
+            text = text[:tag_start]
+
+    # Clean any dangling tags
+    text = re.sub(rf"</?({tag_pattern})[^>]*>", "", text, flags=re.IGNORECASE)
+
+    # 3. Untagged thinking blocks: "Thinking Process:\n...", "Thought:\n..."
+    text = re.sub(
+        r"(?is)^\s*(?:\*\*|#+)?\s*(?:Thinking|Thought|Reasoning|Analysis)(?:\s+Process)?(?:\*\*|#+)?:?\s*.*?(?=(?:\*\*|#+)?\s*(?:Final\s+)?Prompt(?:\*\*|#+)?:|\n\n+[A-ZА-Я]|\Z)",
+        "",
+        text,
+    )
+
+    # 4. English conversational reasoning preambles: "Okay, I need to create...", "Let's think about..."
+    text = re.sub(
+        r"(?is)^\s*(?:Okay|Alright|Well|Sure),?\s+(?:I need to|let's|I should|I'll|let me|we need to|the user wants)\s+[^\n]*\n+",
+        "",
+        text,
+    )
+
+    return text
 
 
 @dataclass
@@ -51,12 +102,16 @@ def clean_output(text: str, config: Optional[OutputCleanConfig] = None) -> str:
     cfg = config or OutputCleanConfig()
     cleaned = text.strip()
 
+    # Strip internal thinking first so downstream pattern cleaners operate on pure prompt text
+    if cfg.strip_think:
+        cleaned = strip_thinking(cleaned)
+    else:
+        # analysis_scratchpad is always stripped regardless of strip_think
+        cleaned = re.sub(r"<analysis_scratchpad[^>]*>.*?</analysis_scratchpad>", "", cleaned, flags=re.DOTALL | re.IGNORECASE)
+        cleaned = re.sub(r"</?analysis_scratchpad[^>]*>", "", cleaned, flags=re.IGNORECASE)
+
     for pattern, replacement in CLEANUP_PATTERNS:
         cleaned = re.sub(pattern, replacement, cleaned, flags=re.IGNORECASE | re.MULTILINE)
-
-    if cfg.strip_think:
-        cleaned = re.sub(r"<(think|analysis_scratchpad)[^>]*>.*?</\1>", "", cleaned, flags=re.DOTALL | re.IGNORECASE)
-        cleaned = re.sub(r"</?(think|analysis_scratchpad)[^>]*>", "", cleaned, flags=re.IGNORECASE)
 
     if cfg.strip_code_fences:
         cleaned = cleaned.replace("```", "")

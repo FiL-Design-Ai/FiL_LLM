@@ -566,6 +566,9 @@ def register_routes():
         except (TypeError, ValueError):
             rate_limit_ms = 100
         context = str(data.get("context", "instruction")).strip().lower()
+        style = str(data.get("style", "neutral")).strip().lower()
+        length = str(data.get("length", "balanced")).strip().lower()
+        target_language = str(data.get("target_language", "auto")).strip().lower()
         result = await asyncio.to_thread(
             run_director_assist,
             str(data.get("provider", "")).strip().lower(),
@@ -575,6 +578,9 @@ def register_routes():
             temperature,
             rate_limit_ms,
             context,
+            style,
+            length,
+            target_language,
         )
         if "error" in result:
             return web.json_response(result, status=502)

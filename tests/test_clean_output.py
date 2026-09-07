@@ -63,3 +63,31 @@ def test_strip_non_latin_false_still_cleans_metadata():
     assert "think" not in result
     assert "masterpiece" in result
     assert "一位少女" in result
+
+
+def test_strip_unclosed_think_tag_cut_off():
+    # Model hit token limit during internal reasoning
+    text = "<think>Wait, the user wants a portrait. I should think about lighting, rim light and"
+    assert clean_output(text) == ""
+
+
+def test_strip_unclosed_think_tag_with_prompt_transition():
+    # Model didn't close <think> but transitioned to Prompt:
+    text = "<think>Let me formulate this.\nPrompt: cinematic shot of an astronaut on Mars"
+    assert clean_output(text) == "cinematic shot of an astronaut on Mars"
+
+
+def test_strip_thought_and_reasoning_tags():
+    text = "<thought>deep thoughts</thought><reasoning>logic</reasoning>ancient fantasy castle"
+    assert clean_output(text) == "ancient fantasy castle"
+
+
+def test_strip_untagged_thinking_process_block():
+    text = "Thinking Process:\n1. Analyze subject\n2. Add details\n\nPrompt: cybernetic tiger in neon jungle"
+    assert clean_output(text) == "cybernetic tiger in neon jungle"
+
+
+def test_strip_english_conversational_preamble():
+    text = "Okay, I need to create a detailed prompt for the user.\nA majestic lion resting under an acacia tree"
+    assert clean_output(text) == "A majestic lion resting under an acacia tree"
+
