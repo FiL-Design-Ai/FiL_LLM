@@ -80,7 +80,8 @@ export const krea2TiledDiffusionNode: NodeModule = {
     const originalCreated = p.onNodeCreated;
     p.onNodeCreated = function (this: LGraphNode, ...args: unknown[]) {
       const result = originalCreated?.apply(this, args);
-      const node = this as LGraphNode & { _filKrea2State?: unknown };
+      const node = this as LGraphNode & { _filKrea2State?: unknown; _filSocketPolicy?: string };
+      node._filSocketPolicy = "always";
       const initial: Record<string, unknown> = {};
       syncAll(node, initial);
       for (const name of HIDE) {
@@ -103,7 +104,8 @@ export const krea2TiledDiffusionNode: NodeModule = {
     const originalConfigure = p.onConfigure;
     p.onConfigure = function (this: LGraphNode, ...args: unknown[]) {
       const result = originalConfigure?.apply(this, args);
-      const node = this as LGraphNode & { _filKrea2State?: PersistedPanelState };
+      const node = this as LGraphNode & { _filKrea2State?: PersistedPanelState; _filSocketPolicy?: string };
+      node._filSocketPolicy = "always";
       const state = node._filKrea2State;
       if (!state) return result;
       const hasFilState = Boolean((args[0] as Record<string, unknown> | undefined)?.[FIL_STATE_KEY]);

@@ -23289,7 +23289,9 @@ var cP, lP, uP, dP = n((() => {
 				for (let r of Object.keys(SP)) t[r] = Q(Z(e, r), "string", SP[r], n);
 			}, i = n.onNodeCreated;
 			n.onNodeCreated = function(...e) {
-				let t = i?.apply(this, e), n = this, a = {};
+				let t = i?.apply(this, e), n = this;
+				n._filSocketPolicy = "always";
+				let a = {};
 				r(n, a);
 				for (let e of CP) Ld(n, e);
 				let o = {
@@ -23309,7 +23311,9 @@ var cP, lP, uP, dP = n((() => {
 			};
 			let a = n.onConfigure;
 			n.onConfigure = function(...e) {
-				let t = a?.apply(this, e), n = this, i = n._filKrea2State;
+				let t = a?.apply(this, e), n = this;
+				n._filSocketPolicy = "always";
+				let i = n._filKrea2State;
 				if (!i) return t;
 				let o = !!e[0]?.[dw];
 				return r(n, i.nodeState, o), uw(i, e[0]), JC(this, bP), t;
