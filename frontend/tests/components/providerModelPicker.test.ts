@@ -49,18 +49,26 @@ function seedModels(
   provider: string,
   list: string[],
   visionModels: string[] = [],
+  nsfwModels: string[] = [],
+  verifiedModels: string[] = [],
 ) {
   store.modelsByProvider = {
     ...store.modelsByProvider,
-    [provider]: { list, visionModels, cachedAt: Date.now(), loading: false },
+    [provider]: { list, visionModels, nsfwModels, verifiedModels, cachedAt: Date.now(), loading: false },
   };
 }
 
 let wrapper: VueWrapper | null = null;
 
-async function openWith(provider: string, list: string[], visionModels: string[] = []) {
+async function openWith(
+  provider: string,
+  list: string[],
+  visionModels: string[] = [],
+  nsfwModels: string[] = [],
+  verifiedModels: string[] = [],
+) {
   wrapper = mount(ProviderModelPickerVue, { props: { open: false, provider, model: "" } });
-  seedModels(useProviderStore(), provider, list, visionModels);
+  seedModels(useProviderStore(), provider, list, visionModels, nsfwModels, verifiedModels);
   await wrapper.setProps({ open: true });
   await nextTick();
   return wrapper;
@@ -139,6 +147,12 @@ describe("ProviderModelPicker search and filters", () => {
     expect(cardCount()).toBe(1);
     expect(modelCard("gpt-4o")).toBeTruthy();
     expect(() => modelCard("gpt-4o:free")).toThrow();
+  });
+
+  it("marks Hugging Face models as free tier", async () => {
+    await openWith("huggingface", ["Qwen/Qwen2.5-VL-72B-Instruct"]);
+    expect(sidebarRow("Free").textContent).toContain("1");
+    expect(sidebarRow("Paid").textContent).toContain("0");
   });
 
   it("filters to vision-tagged models only", async () => {
@@ -270,5 +284,29 @@ describe("ProviderModelPicker selection", () => {
     modelCard("llama-3.1-70b").dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
     expect(document.querySelector(".pmp-det-id")?.textContent).toBe("meta-llama/llama-3.1-70b-instruct");
+  });
+
+  it("badges NSFW models and filters by uncensored content", async () => {
+    await openWith("openrouter", ["magnum-v4-72b", "gpt-4o"], [], ["magnum-v4-72b"]);
+    expect(cardCount()).toBe(2);
+    expect(modelCard("magnum-v4-72b").textContent).toContain("🔞 NSFW");
+    expect(modelCard("gpt-4o").textContent).not.toContain("🔞 NSFW");
+
+    sidebarRow("🔞 Uncensored (NSFW)").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await nextTick();
+    expect(cardCount()).toBe(1);
+    expect(modelCard("magnum-v4-72b")).not.toBeNull();
+  });
+
+  it("badges verified models and filters by verified status", async () => {
+    await openWith("groq", ["qwen3.8-27b", "broken-model"], [], [], ["qwen3.8-27b"]);
+    expect(cardCount()).toBe(2);
+    expect(modelCard("qwen3.8-27b").textContent).toContain("⚡ Verified");
+    expect(modelCard("broken-model").textContent).not.toContain("⚡ Verified");
+
+    sidebarRow("⚡ Verified").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await nextTick();
+    expect(cardCount()).toBe(1);
+    expect(modelCard("qwen3.8-27b")).not.toBeNull();
   });
 });

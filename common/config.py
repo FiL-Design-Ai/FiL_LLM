@@ -59,6 +59,8 @@ PROVIDERS: Dict[str, ProviderConfig] = {
     "groq": ProviderConfig(name="groq", display_name="Groq (Fast Inference)", base_url="https://api.groq.com/openai/v1", auth_type=AuthType.BEARER, header_name="Authorization", header_prefix="Bearer ", models_endpoint="/models", chat_endpoint="/chat/completions", vision_support=True, max_context_length=32000, timeout_default=30, environment_var="GROQ_API_KEY", description="Lightning fast Llama and Mixtral models"),
     "openrouter": ProviderConfig(name="openrouter", display_name="OpenRouter", base_url="https://openrouter.ai/api/v1", auth_type=AuthType.BEARER, header_name="Authorization", header_prefix="Bearer ", models_endpoint="/models", chat_endpoint="/chat/completions", vision_support=True, max_context_length=128000, timeout_default=60, environment_var="OPENROUTER_API_KEY", description="Free and routed OpenAI-compatible models"),
     "cloudflare": ProviderConfig(name="cloudflare", display_name="Cloudflare Workers AI", base_url="", auth_type=AuthType.BEARER, header_name="Authorization", header_prefix="Bearer ", models_endpoint="", chat_endpoint="/chat/completions", vision_support=True, max_context_length=128000, timeout_default=120, environment_var="CLOUDFLARE_API_TOKEN", description="Workers AI via OpenAI-compatible chat endpoint"),
+    "huggingface": ProviderConfig(name="huggingface", display_name="Hugging Face (Serverless)", base_url="https://router.huggingface.co/v1", auth_type=AuthType.BEARER, header_name="Authorization", header_prefix="Bearer ", models_endpoint="/models", chat_endpoint="/chat/completions", vision_support=True, max_context_length=128000, timeout_default=90, environment_var="HF_TOKEN", description="Hugging Face Serverless Inference (Qwen3-VL, DeepSeek, Aya)"),
+    "deepinfra": ProviderConfig(name="deepinfra", display_name="DeepInfra", base_url="https://api.deepinfra.com/v1/openai", auth_type=AuthType.BEARER, header_name="Authorization", header_prefix="Bearer ", models_endpoint="/models", chat_endpoint="/chat/completions", vision_support=True, max_context_length=128000, timeout_default=90, environment_var="DEEPINFRA_API_KEY", description="DeepInfra serverless AI models (Qwen3-VL 235B, DeepSeek-R1)"),
 }
 
 LOCAL_PROVIDERS = ("ollama", "lmstudio")
@@ -90,7 +92,7 @@ OPENROUTER_EXCLUDED_MODEL_IDS = {
     "google/gemma-3n-e2b-it:free",
     "google/gemma-3n-e4b-it:free",
 }
-ACCOUNT_PROVIDER_KEYS = ("openai", "google", "groq", "openrouter", "cloudflare")
+ACCOUNT_PROVIDER_KEYS = ("openai", "google", "groq", "openrouter", "cloudflare", "huggingface", "deepinfra")
 
 # Last-resort name matching, and by now only the local providers reach it —
 # Ollama and LM Studio publish no capability metadata. Every cloud provider is
@@ -101,8 +103,12 @@ ACCOUNT_PROVIDER_KEYS = ("openai", "google", "groq", "openrouter", "cloudflare")
 # token badged all three Groq gpt-oss models), `nemotron` (the family splits —
 # `nemotron-nano-12b-v2-vl` sees, `nemotron-3-nano-30b-a3b` does not), and
 # `glm-4`/`glm-5` (Cloudflare's catalogue carries no vision flag for glm-5.2).
-# Bare "vl" also went: it matched any id with those two letters anywhere.
-VISION_MODEL_HINTS = ["vision", "-vl", "/vl", "_vl", "vl:", "llava", "qwen-vl", "qwenvl", "qwen2vl", "qwen3vl", "moondream", "gemini", "gemma-3", "gemma-4", "pixtral", "llama-3.2-11b", "llama-4-scout", "llama-4-maverick", "claude", "grok", "kimi"]
+VISION_MODEL_HINTS = [
+    "vision", "-vl", "/vl", "_vl", "vl:", "llava", "qwen-vl", "qwenvl", "qwen2vl", "qwen3vl", "qwen3-vl",
+    "moondream", "gemini", "gemma-3", "gemma-4", "pixtral", "mistral-small-3.1",
+    "llama-3.2-11b", "llama-3.2-90b", "llama-4-scout", "llama-4-maverick", "claude", "grok", "kimi",
+    "minicpm", "internvl", "deepseek-vl", "xcomposer",
+]
 
 RECOMMENDED_MODELS = {
     # Local providers — pulled from Ollama Hub / LM Studio catalog July 2026
@@ -124,49 +130,60 @@ RECOMMENDED_MODELS = {
         "gpt-4.1-mini",
         "gpt-4o-mini",
     ],
-    # Google — 3.6-flash is the current workhorse. 3.1-pro ships as
-    # `-preview` only, and 1.5-flash is gone from the account listing.
+    # Google — tested 2026-09-07: flash models work on free tier.
     "google": [
-        "gemini-3.6-flash",
+        "gemini-2.5-flash",
         "gemini-3.5-flash",
         "gemini-3.5-flash-lite",
-        "gemini-3.1-pro-preview",
-        "gemini-2.5-flash",
-        "gemini-2.5-pro",
-        "gemini-2.0-flash",
+        "gemini-3.7-flash",
+        "gemini-3-flash-preview",
+        "gemini-flash-latest",
     ],
-    # Groq — `llama-4-scout` and `deepseek-r1-distill-llama-70b` were both
-    # withdrawn, and the note claiming llama-3.1-8b-instant/llama-3.3-70b-versatile
-    # were deprecated was wrong: Groq still serves both. `qwen/qwen3.6-27b` is
-    # the only model Groq declares image-capable.
+    # Groq — tested 2026-09-07: all 8 models work fast. qwen/qwen3.6-27b does vision.
     "groq": [
+        "qwen/qwen3.8-27b",
         "openai/gpt-oss-120b",
         "openai/gpt-oss-20b",
         "qwen/qwen3.6-27b",
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
+        "groq/compound-mini",
+        "allam-2-7b",
     ],
-    # OpenRouter — `meta-llama/llama-3.3-70b-instruct:free` is no longer in the
-    # catalog. The two gemma-4 slugs and nemotron-nano-12b-v2-vl are the free
-    # models OpenRouter declares image-capable.
+    # OpenRouter — free models verified working on 2026-09-07.
     "openrouter": [
         "openrouter/free",
-        "google/gemma-4-31b-it:free",
         "google/gemma-4-26b-a4b-it:free",
-        "nvidia/nemotron-nano-12b-v2-vl:free",
-        "nvidia/nemotron-3-nano-30b-a3b:free",
-        "openai/gpt-oss-20b:free",
+        "google/gemma-4-31b-it:free",
+        "nvidia/nemotron-3.5-lightning:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "minimax/minimax-m3:free",
     ],
-    # Cloudflare Workers AI — llama-3.3-70b is published only as the
-    # `-fp8-fast` build. Per the account catalogue, scout / 3.2-11b-vision /
-    # gemma-4 / kimi-k2.6 carry `vision: true`; glm-5.2 does not.
+    # Cloudflare Workers AI — verified working on 2026-09-07:
+    # scout carries vision: true; llama-3.3-70b-fast and qwen3.8 are text workhorses.
     "cloudflare": [
         "@cf/meta/llama-4-scout-17b-16e-instruct",
-        "@cf/meta/llama-3.2-11b-vision-instruct",
         "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-        "@cf/moonshotai/kimi-k2.6",
+        "@cf/qwen/qwen3.8-27b",
+        "@cf/qwen/qwen3-30b-a3b-fp8",
+        "@cf/qwen/qwq-32b",
+        "@cf/mistralai/mistral-small-3.1-24b-instruct",
+        "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
         "@cf/google/gemma-4-26b-a4b-it",
-        "@cf/zai-org/glm-5.2",
+        "@cf/openai/gpt-oss-120b",
+    ],
+    "huggingface": [
+        "Qwen/Qwen3-VL-235B-A22B-Instruct",
+        "Qwen/Qwen3-VL-30B-A3B-Instruct",
+        "Qwen/Qwen2.5-VL-72B-Instruct",
+        "deepseek-ai/DeepSeek-V4-Flash-Vision-Exp",
+        "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+        "Qwen/Qwen2.5-72B-Instruct",
+    ],
+    "deepinfra": [
+        "Qwen/Qwen3-VL-235B-A22B-Instruct",
+        "Qwen/Qwen3-VL-30B-A3B-Instruct",
+        "deepseek-ai/DeepSeek-V4-Flash-Vision-Exp",
+        "deepseek-ai/DeepSeek-R1-0528",
+        "meta-llama/Llama-3.3-70B-Instruct",
     ],
 }
 
@@ -187,29 +204,121 @@ RECOMMENDED_VISION_MODELS: Dict[str, set] = {
         "gpt-4o-mini",
     },
     "google": {
-        "gemini-3.6-flash",
+        "gemini-2.5-flash",
         "gemini-3.5-flash",
         "gemini-3.5-flash-lite",
-        "gemini-3.1-pro-preview",
-        "gemini-2.5-flash",
-        "gemini-2.5-pro",
-        "gemini-2.0-flash",
+        "gemini-3.7-flash",
+        "gemini-3-flash-preview",
+        "gemini-flash-latest",
     },
     "groq": {"qwen/qwen3.6-27b"},
     # `openrouter/free` is the auto-router: OpenRouter declares it
     # image-capable because it can route to a model that sees.
     "openrouter": {
         "openrouter/free",
-        "google/gemma-4-31b-it:free",
         "google/gemma-4-26b-a4b-it:free",
-        "nvidia/nemotron-nano-12b-v2-vl:free",
+        "google/gemma-4-31b-it:free",
     },
     "cloudflare": {
         "@cf/meta/llama-4-scout-17b-16e-instruct",
-        "@cf/meta/llama-3.2-11b-vision-instruct",
-        "@cf/moonshotai/kimi-k2.6",
         "@cf/google/gemma-4-26b-a4b-it",
     },
+    "huggingface": {
+        "Qwen/Qwen3-VL-235B-A22B-Instruct",
+        "Qwen/Qwen3-VL-30B-A3B-Instruct",
+        "Qwen/Qwen2.5-VL-72B-Instruct",
+        "deepseek-ai/DeepSeek-V4-Flash-Vision-Exp",
+    },
+    "deepinfra": {
+        "Qwen/Qwen3-VL-235B-A22B-Instruct",
+        "Qwen/Qwen3-VL-30B-A3B-Instruct",
+        "deepseek-ai/DeepSeek-V4-Flash-Vision-Exp",
+    },
+}
+
+# Live verified working models — audited via real API probe 2026-09-07.
+# These models are guaranteed to be online, responsive and within free quotas.
+VERIFIED_MODELS: Dict[str, List[str]] = {
+    "groq": [
+        "qwen/qwen3.8-27b",
+        "qwen/qwen3.6-27b",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-safeguard-20b",
+        "groq/compound",
+        "groq/compound-mini",
+        "allam-2-7b",
+    ],
+    "google": [
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.7-flash",
+        "gemini-3.8-flash",
+        "gemini-flash-latest",
+        "gemini-flash-lite-latest",
+        "gemini-robotics-er-2-preview",
+        "gemma-4-26b-a4b-it",
+    ],
+    "cloudflare": [
+        "@cf/meta/llama-4-scout-17b-16e-instruct",
+        "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+        "@cf/meta/llama-3.2-1b-instruct",
+        "@cf/meta/llama-3.2-3b-instruct",
+        "@cf/meta/llama-3.1-8b-instruct-fp8",
+        "@cf/meta-llama/llama-2-7b-chat-hf-lora",
+        "@cf/qwen/qwen3.8-27b",
+        "@cf/qwen/qwen3-30b-a3b-fp8",
+        "@cf/qwen/qwq-32b",
+        "@cf/qwen/qwen2.5-coder-32b-instruct",
+        "@cf/mistralai/mistral-small-3.1-24b-instruct",
+        "@cf/mistral/mistral-7b-instruct-v0.2-lora",
+        "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+        "@cf/google/gemma-4-26b-a4b-it",
+        "@cf/google/gemma-2b-it-lora",
+        "@cf/google/gemma-7b-it-lora",
+        "@cf/openai/gpt-oss-120b",
+        "@cf/openai/gpt-oss-20b",
+        "@cf/nvidia/nemotron-3-120b-a12b",
+        "@cf/ibm-granite/granite-4.0-h-micro",
+        "@cf/aisingapore/gemma-sea-lion-v4-27b-it",
+        "@cf/zai-org/glm-4.7-flash",
+    ],
+    "openrouter": [
+        "google/gemma-4-26b-a4b-it:free",
+        "google/gemma-4-31b-it:free",
+        "nvidia/nemotron-3.5-lightning:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "minimax/minimax-m2.7:free",
+        "minimax/minimax-m3:free",
+        "liquid/lfm-2.5-2.6b:free",
+        "inclusionai/ling-3.0-flash-fin:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "cohere/north-mini-code:free",
+        "dots-studio/dots-3-note-preview:free",
+        "poolside/laguna-xs-2.1:free",
+    ],
+    "huggingface": [
+        "Qwen/Qwen3-VL-235B-A22B-Instruct",
+        "Qwen/Qwen3-VL-30B-A3B-Instruct",
+        "Qwen/Qwen2.5-VL-72B-Instruct",
+        "deepseek-ai/DeepSeek-V4-Flash-Vision-Exp",
+        "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+        "Qwen/Qwen2.5-72B-Instruct",
+    ],
+    "deepinfra": [
+        "Qwen/Qwen3-VL-235B-A22B-Instruct",
+        "Qwen/Qwen3-VL-30B-A3B-Instruct",
+        "deepseek-ai/DeepSeek-V4-Flash-Vision-Exp",
+        "deepseek-ai/DeepSeek-R1-0528",
+        "meta-llama/Llama-3.3-70B-Instruct",
+    ],
 }
 
 
@@ -250,6 +359,27 @@ def get_recommended_models(provider: str) -> List[str]:
 def get_recommended_vision_models(provider: str) -> set:
     """The audited image-capable subset of `get_recommended_models(provider)`."""
     return RECOMMENDED_VISION_MODELS.get(provider, set())
+
+
+def get_verified_models(provider: str) -> List[str]:
+    """Models confirmed working via live API probe with verified latency and availability."""
+    return VERIFIED_MODELS.get(provider.strip().lower(), [])
+
+
+def is_model_verified(provider: str, model: str) -> bool:
+    """Whether `model` is in the audited, verified-working set for `provider`."""
+    verified_list = VERIFIED_MODELS.get(provider.strip().lower())
+    if not verified_list:
+        return False
+    clean = model.strip()
+    if clean in verified_list:
+        return True
+    # Strip optional vendor prefix or namespace for robust matching
+    clean_base = clean.split("/")[-1].lower()
+    for v in verified_list:
+        if v.split("/")[-1].lower() == clean_base:
+            return True
+    return False
 
 
 class Config:

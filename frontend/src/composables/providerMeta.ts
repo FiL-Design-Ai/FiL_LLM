@@ -11,6 +11,8 @@ export const PROVIDER_LABEL: Record<string, string> = {
   google: "Google AI",
   openrouter: "OpenRouter",
   cloudflare: "Cloudflare",
+  huggingface: "Hugging Face",
+  deepinfra: "DeepInfra",
 };
 
 /** Where the credential actually comes from: the key page for cloud
@@ -25,6 +27,8 @@ export const PROVIDER_CREDENTIAL_LINK: Record<string, { url: string; label: stri
   google: { url: "https://aistudio.google.com/apikey", label: "Get API key" },
   openrouter: { url: "https://openrouter.ai/settings/keys", label: "Get API key" },
   cloudflare: { url: "https://dash.cloudflare.com/profile/api-tokens", label: "Get API token" },
+  huggingface: { url: "https://huggingface.co/settings/tokens", label: "Get Free Token" },
+  deepinfra: { url: "https://deepinfra.com/dash/api_keys", label: "Get API key" },
 };
 
 /** Cloudflare's account id lives in the dashboard, not on the token page. */
@@ -53,4 +57,6 @@ export const PROVIDER_ICON: Record<string, IconName> = {
   google: "provider-google",
   openrouter: "provider-openrouter",
   cloudflare: "provider-cloudflare",
+  huggingface: "provider-huggingface",
+  deepinfra: "provider-deepinfra",
 };

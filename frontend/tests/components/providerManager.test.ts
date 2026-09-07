@@ -76,6 +76,25 @@ describe("ProviderManager fields", () => {
     expect(fieldLabels(wrapper, "Cloudflare")).not.toContain("Base URL");
     expect(wrapper.find('a[href="https://dash.cloudflare.com/"]').exists()).toBe(true);
   });
+
+  it("allows collapsing and expanding configured providers on header click", async () => {
+    const wrapper = await mountWith({
+      openai: { display_name: "OpenAI API", local: false, configured: true, account_id: "", base_url: "" },
+    });
+    const card = wrapper.findAll(".fil-pm-card").find((c) => c.text().includes("OpenAI"))!;
+    // Initially expanded
+    expect(card.classes()).not.toContain("fil-pm-card--collapsed");
+
+    // Click header to collapse
+    await card.find(".fil-pm-header").trigger("click");
+    await nextTick();
+    expect(card.classes()).toContain("fil-pm-card--collapsed");
+
+    // Click header again to expand
+    await card.find(".fil-pm-header").trigger("click");
+    await nextTick();
+    expect(card.classes()).not.toContain("fil-pm-card--collapsed");
+  });
 });
 
 describe("ProviderManager delete", () => {

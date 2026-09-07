@@ -763,6 +763,10 @@
   "krea2_p_vision": "👁️ Vision Weight",
   "krea2_p_colormatch": "🎨 Color Match",
   "krea2_p_lora": "🧬 LoRA",
-  "krea2_p_lora_str": "⚖️ Strength"
+  "krea2_p_lora_str": "⚖️ Strength",
+  "pmp_group_status": "Status",
+  "pmp_status_all": "All models",
+  "pmp_status_verified": "⚡ Verified",
+  "pmp_badge_verified": "⚡ Verified"
 }
 

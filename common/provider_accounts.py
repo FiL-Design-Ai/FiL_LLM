@@ -33,6 +33,7 @@ def _save_auth_json(data: Dict[str, Any]) -> None:
 ENV_VAR_BY_PROVIDER = {
     "openai": "OPENAI_API_KEY", "google": "GOOGLE_API_KEY", "groq": "GROQ_API_KEY",
     "openrouter": "OPENROUTER_API_KEY", "cloudflare": "CLOUDFLARE_API_TOKEN",
+    "huggingface": "HF_TOKEN", "deepinfra": "DEEPINFRA_API_KEY",
 }
 
 

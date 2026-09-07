@@ -59,6 +59,8 @@ export interface ProviderModelsResponse {
   status?: ProviderStatus;
   message?: string;
   vision_models?: string[];
+  nsfw_models?: string[];
+  verified_models?: string[];
 }
 
 /** `probe_provider` returns `{status, message, latency_ms}`. */
@@ -79,6 +81,9 @@ export interface DirectorAssistRequest {
   temperature?: number;
   rate_limit_ms?: number;
   context?: "instruction" | "prompt";
+  style?: "neutral" | "photorealism" | "cinematic" | "anime" | "precise" | "creative" | "minimal";
+  length?: "concise" | "balanced" | "detailed" | "targeted" | "comprehensive";
+  target_language?: "auto" | "en" | "ru";
 }
 
 /** The route answers `{result}` on success or `{error}` with a non-2xx status. */

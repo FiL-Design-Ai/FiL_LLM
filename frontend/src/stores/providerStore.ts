@@ -16,12 +16,14 @@ const CACHE_TTL_MS = 300_000; // 5 minutes
 interface ModelsCacheEntry {
   list: string[];
   visionModels: string[];
+  nsfwModels: string[];
+  verifiedModels: string[];
   cachedAt: number;
   loading: boolean;
   error?: string;
 }
 
-const PROVIDER_IDS = ["ollama", "lmstudio", "openai", "google", "groq", "openrouter", "cloudflare"] as const;
+const PROVIDER_IDS = ["ollama", "lmstudio", "openai", "google", "groq", "openrouter", "cloudflare", "huggingface", "deepinfra"] as const;
 export type ProviderId = (typeof PROVIDER_IDS)[number];
 export const PROVIDER_LIST: readonly ProviderId[] = PROVIDER_IDS;
 
@@ -119,7 +121,7 @@ export const useProviderStore = defineStore("fil/providers", () => {
     const existing = modelsByProvider.value[provider];
     if (existing) existing.loading = true;
     else {
-      modelsByProvider.value[provider] = { list: [], visionModels: [], cachedAt: 0, loading: true };
+      modelsByProvider.value[provider] = { list: [], visionModels: [], nsfwModels: [], verifiedModels: [], cachedAt: 0, loading: true };
     }
     try {
       const res = await providerApi.loadModels(provider, force);
@@ -127,6 +129,8 @@ export const useProviderStore = defineStore("fil/providers", () => {
       modelsByProvider.value[provider] = {
         list,
         visionModels: res.vision_models || [],
+        nsfwModels: res.nsfw_models || [],
+        verifiedModels: res.verified_models || [],
         cachedAt: Date.now(),
         loading: false,
       };
@@ -141,6 +145,8 @@ export const useProviderStore = defineStore("fil/providers", () => {
       modelsByProvider.value[provider] = {
         list: [],
         visionModels: [],
+        nsfwModels: [],
+        verifiedModels: [],
         cachedAt: 0,
         loading: false,
         error: msg,
@@ -195,6 +201,14 @@ export const useProviderStore = defineStore("fil/providers", () => {
     return modelsByProvider.value[provider]?.visionModels ?? [];
   }
 
+  function nsfwModelsFor(provider: string): string[] {
+    return modelsByProvider.value[provider]?.nsfwModels ?? [];
+  }
+
+  function verifiedModelsFor(provider: string): string[] {
+    return modelsByProvider.value[provider]?.verifiedModels ?? [];
+  }
+
   function isLoading(provider: string): boolean {
     return Boolean(modelsByProvider.value[provider]?.loading);
   }
@@ -216,6 +230,8 @@ export const useProviderStore = defineStore("fil/providers", () => {
     loadDisplayNames,
     modelsFor,
     visionModelsFor,
+    nsfwModelsFor,
+    verifiedModelsFor,
     isLoading,
     cachedAgeLabel,
   };

@@ -76,25 +76,33 @@ function remember(key: string, value: string) {
 }
 
 const STORAGE_KEY_VIEW = "fil_model_picker_view_mode";
+const STORAGE_KEY_STATUS = "fil_model_picker_status_filter";
 const STORAGE_KEY_TYPE = "fil_model_picker_type_filter";
 const STORAGE_KEY_TIER = "fil_model_picker_tier_filter";
 const STORAGE_KEY_ONLY = "fil_model_picker_only_filter";
+const STORAGE_KEY_CONTENT = "fil_model_picker_content_filter";
 
+type StatusFilter = "all" | "verified";
 type TypeFilter = "all" | "vision" | "text";
 type TierFilter = "all" | "free" | "paid" | "local";
 type OnlyFilter = "all" | "fav" | "recent";
+type ContentFilter = "all" | "nsfw" | "sfw";
 
 // The filters survive closing the picker, the way the view mode already did:
 // somebody who narrowed 367 models to free vision ones should not redo it on
 // every visit.
+const statusFilter = ref<StatusFilter>((recall(STORAGE_KEY_STATUS) as StatusFilter) || "all");
 const typeFilter = ref<TypeFilter>((recall(STORAGE_KEY_TYPE) as TypeFilter) || "all");
 const tierFilter = ref<TierFilter>((recall(STORAGE_KEY_TIER) as TierFilter) || "all");
 const onlyFilter = ref<OnlyFilter>((recall(STORAGE_KEY_ONLY) as OnlyFilter) || "all");
+const contentFilter = ref<ContentFilter>((recall(STORAGE_KEY_CONTENT) as ContentFilter) || "all");
 const viewMode = ref<"list" | "grid">((recall(STORAGE_KEY_VIEW) as "list" | "grid") || "list");
 
+watch(statusFilter, (v) => remember(STORAGE_KEY_STATUS, v));
 watch(typeFilter, (v) => remember(STORAGE_KEY_TYPE, v));
 watch(tierFilter, (v) => remember(STORAGE_KEY_TIER, v));
 watch(onlyFilter, (v) => remember(STORAGE_KEY_ONLY, v));
+watch(contentFilter, (v) => remember(STORAGE_KEY_CONTENT, v));
 watch(viewMode, (v) => remember(STORAGE_KEY_VIEW, v));
 
 /** Where this provider's recents are kept — the same id under two providers is
@@ -105,6 +113,8 @@ const recentScope = computed(() => `models:${selectedProvider.value}`);
 
 const currentModels = computed(() => store.modelsFor(selectedProvider.value));
 const visionModels = computed(() => store.visionModelsFor(selectedProvider.value));
+const nsfwModels = computed(() => store.nsfwModelsFor(selectedProvider.value));
+const verifiedModels = computed(() => store.verifiedModelsFor(selectedProvider.value));
 const isLoading = computed(() => store.isLoading(selectedProvider.value));
 const probe = computed(() => store.probeState[selectedProvider.value]);
 const ageLabel = computed(() => store.cachedAgeLabel(selectedProvider.value, t));
@@ -115,7 +125,9 @@ const isLocalProvider = computed(
 
 function getTier(m: string, p: string): "local" | "free" | "paid" {
   if (p === "ollama" || p === "lmstudio") return "local";
-  if (m.toLowerCase().includes(":free")) return "free";
+  // Hugging Face, Groq, Google AI Studio, Cloudflare Workers AI provide free API tiers for their models
+  if (p === "huggingface" || p === "groq" || p === "google" || p === "cloudflare") return "free";
+  if (m.toLowerCase().includes(":free") || m.toLowerCase() === "openrouter/free") return "free";
   return "paid";
 }
 
@@ -130,6 +142,12 @@ function getTier(m: string, p: string): "local" | "free" | "paid" {
 const visionSet = computed(() => new Set(visionModels.value));
 const isVision = (m: string) => visionSet.value.has(m);
 
+const nsfwSet = computed(() => new Set(nsfwModels.value));
+const isNsfw = (m: string) => nsfwSet.value.has(m);
+
+const verifiedSet = computed(() => new Set(verifiedModels.value));
+const isVerified = (m: string) => verifiedSet.value.has(m);
+
 // `isFavourite` reads a module-level ref, so calling it from a computed is
 // enough for Vue to track it — a toggle replaces the Set and everything that
 // read it re-evaluates.
@@ -139,14 +157,20 @@ const starred = (m: string) => isFavourite(selectedProvider.value, m);
 
 /** Everything except the axis being counted, so each row's number answers
  *  "how many would be left if I clicked this" rather than "how many exist". */
-function passes(m: string, skip: "type" | "tier" | "only" | null): boolean {
+function passes(m: string, skip: "status" | "type" | "tier" | "only" | "content" | null): boolean {
   const p = selectedProvider.value;
+  if (skip !== "status" && statusFilter.value !== "all") {
+    if (statusFilter.value === "verified" && !isVerified(m)) return false;
+  }
   if (skip !== "type" && typeFilter.value !== "all") {
     if (typeFilter.value === "vision" ? !isVision(m) : isVision(m)) return false;
   }
   if (skip !== "tier" && tierFilter.value !== "all" && getTier(m, p) !== tierFilter.value) return false;
   if (skip !== "only" && onlyFilter.value !== "all") {
     if (onlyFilter.value === "fav" ? !starred(m) : !recentsFor(recentScope.value).includes(m)) return false;
+  }
+  if (skip !== "content" && contentFilter.value !== "all") {
+    if (contentFilter.value === "nsfw" ? !isNsfw(m) : isNsfw(m)) return false;
   }
   return true;
 }
@@ -155,7 +179,11 @@ const SEARCH_FIELDS: SearchField<BrowserItem>[] = [{ weight: 100, read: (item) =
 
 function tagsFor(m: string): BrowserTag[] {
   const tier = getTier(m, selectedProvider.value);
-  return [
+  const tags: BrowserTag[] = [];
+  if (isVerified(m)) {
+    tags.push({ label: t("pmp_badge_verified", "⚡ Verified"), tone: "ok" as const });
+  }
+  tags.push(
     isVision(m)
       ? { label: t("pmp_tag_vision", "Vision"), tone: "accent" as const }
       : { label: t("pmp_tag_text", "Text"), tone: "neutral" as const },
@@ -168,7 +196,11 @@ function tagsFor(m: string): BrowserTag[] {
             : t("pmp_tag_paid", "Paid"),
       tone: tier === "free" ? ("ok" as const) : ("neutral" as const),
     },
-  ];
+  );
+  if (isNsfw(m)) {
+    tags.push({ label: t("pmp_tag_nsfw", "🔞 NSFW"), tone: "warn" as const });
+  }
+  return tags;
 }
 
 function toItem(m: string): BrowserItem {
@@ -184,7 +216,7 @@ const browserItems = computed<BrowserItem[]>(() => {
 
 // ── the left column ──────────────────────────────────────────────────────────
 
-const countIf = (skip: "type" | "tier" | "only", test: (m: string) => boolean) =>
+const countIf = (skip: "status" | "type" | "tier" | "only" | "content", test: (m: string) => boolean) =>
   currentModels.value.filter((m) => passes(m, skip) && test(m)).length;
 
 const sidebarSections = computed<BrowserSidebarSection[]>(() => {
@@ -203,6 +235,14 @@ const sidebarSections = computed<BrowserSidebarSection[]>(() => {
         // reads as "this one is empty" rather than "not loaded yet".
         count: store.modelsFor(p).length || null,
       })),
+    },
+    {
+      id: "status",
+      heading: t("pmp_group_status", "Status"),
+      rows: [
+        { id: "status:all", label: t("pmp_status_all", "All models"), count: countIf("status", () => true) },
+        { id: "status:verified", label: t("pmp_status_verified", "⚡ Verified"), icon: "⚡", count: countIf("status", isVerified) },
+      ],
     },
     {
       id: "only",
@@ -251,15 +291,27 @@ const sidebarSections = computed<BrowserSidebarSection[]>(() => {
     ],
   });
 
+  sections.push({
+    id: "content",
+    heading: t("pmp_group_content", "Content"),
+    rows: [
+      { id: "content:all", label: t("pmp_content_all", "All content"), count: countIf("content", () => true) },
+      { id: "content:nsfw", label: t("pmp_content_nsfw", "🔞 Uncensored (NSFW)"), icon: "🔞", count: countIf("content", isNsfw) },
+      { id: "content:sfw", label: t("pmp_content_sfw", "🛡️ Standard"), icon: "🛡️", count: countIf("content", (m) => !isNsfw(m)) },
+    ],
+  });
+
   return sections;
 });
 
-/** Four axes are in force at once, which is why the sidebar takes a list. */
+/** Six axes are in force at once, which is why the sidebar takes a list. */
 const activeRows = computed(() => [
   `provider:${selectedProvider.value}`,
+  `status:${statusFilter.value}`,
   `only:${onlyFilter.value}`,
   `type:${typeFilter.value}`,
   `tier:${tierFilter.value}`,
+  `content:${contentFilter.value}`,
 ]);
 
 function onSidebarPick(id: string) {
@@ -270,9 +322,11 @@ function onSidebarPick(id: string) {
   }
   // Clicking the row that is already on turns it back off, so a facet never
   // needs its own "All" to be hunted for.
-  if (group === "only") onlyFilter.value = onlyFilter.value === value ? "all" : (value as OnlyFilter);
+  if (group === "status") statusFilter.value = statusFilter.value === value ? "all" : (value as StatusFilter);
+  else if (group === "only") onlyFilter.value = onlyFilter.value === value ? "all" : (value as OnlyFilter);
   else if (group === "type") typeFilter.value = typeFilter.value === value ? "all" : (value as TypeFilter);
   else if (group === "tier") tierFilter.value = tierFilter.value === value ? "all" : (value as TierFilter);
+  else if (group === "content") contentFilter.value = contentFilter.value === value ? "all" : (value as ContentFilter);
 }
 
 // ── provider switching and loading ───────────────────────────────────────────

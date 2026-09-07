@@ -66,6 +66,8 @@ def test_missing_cloud_key_does_not_make_network_request(monkeypatch):
         "status": "configured",
         "message": "Сначала сохрани API-ключ.",
         "vision_models": [],
+        "nsfw_models": [],
+        "verified_models": [],
     }
 
 
@@ -503,12 +505,15 @@ def test_offline_local_provider(monkeypatch):
     assert result["models"] == []
 
 
-def test_all_seven_providers_schema_and_fetching(monkeypatch):
+def test_all_providers_schema_and_fetching(monkeypatch):
     from FiL_Design_ImageMind.common.config import PROVIDERS, is_model_vision_capable
     from FiL_Design_ImageMind.common.provider_runtime import fetch_models_with_status
     from FiL_Design_ImageMind.common.processing import is_valid_model_name
 
-    expected_providers = {"ollama", "lmstudio", "openai", "google", "groq", "openrouter", "cloudflare"}
+    expected_providers = {
+        "ollama", "lmstudio", "openai", "google", "groq", "openrouter",
+        "cloudflare", "huggingface", "deepinfra"
+    }
     assert set(PROVIDERS.keys()) == expected_providers
 
     # Mock API key so cloud providers get beyond auth missing check
@@ -706,6 +711,20 @@ def test_unload_posts_the_instance_id_to_lmstudio(monkeypatch):
     ]
 
 
+def test_unload_strips_v1_from_lmstudio_base_url(monkeypatch):
+    from FiL_Design_ImageMind.common import provider_runtime
+
+    _RecordingUnloadClient.posts = []
+    monkeypatch.setattr(provider_runtime, "HTTPClient", _RecordingUnloadClient)
+    monkeypatch.setattr(provider_runtime, "get_provider_base_url", lambda provider: "http://127.0.0.1:1234/v1")
+
+    provider_runtime.unload_local_model("lmstudio", "google/gemma-4-e4b")
+
+    assert _RecordingUnloadClient.posts == [
+        ("http://127.0.0.1:1234/api/v1/models/unload", {"instance_id": "google/gemma-4-e4b"})
+    ]
+
+
 def test_unload_ignores_cloud_providers_and_empty_models(monkeypatch):
     from FiL_Design_ImageMind.common import provider_runtime
 
@@ -802,3 +821,99 @@ def test_openai_content_filter_raises_content_blocked_error():
 
     assert "content safety filter" in str(excinfo.value)
     assert "content_filter" in str(excinfo.value)
+
+
+def test_nsfw_classification_and_api_response(monkeypatch):
+    """Test that uncensored and NSFW models are classified and returned in nsfw_models."""
+    from FiL_Design_ImageMind.common.model_capabilities import is_nsfw_capable
+    from FiL_Design_ImageMind.common import provider_runtime
+
+    assert is_nsfw_capable("openrouter", "anthracite-org/magnum-v4-72b") is True
+    assert is_nsfw_capable("openrouter", "cognitivecomputations/dolphin-mistral-24b-venice-edition") is True
+    assert is_nsfw_capable("openrouter", "sao10k/l3.3-euryale-70b") is True
+    assert is_nsfw_capable("ollama", "dolphin3:latest") is True
+    assert is_nsfw_capable("ollama", "llama3-uncensored:latest") is True
+    assert is_nsfw_capable("google", "gemini-3.6-flash") is False
+    assert is_nsfw_capable("google", "lyria-3-pro-preview") is False
+    assert is_nsfw_capable("openai", "gpt-4o") is False
+
+    class Response:
+        def json(self):
+            return {
+                "data": [
+                    {"id": "anthracite-org/magnum-v4-72b"},
+                    {"id": "google/gemini-2.5-flash"},
+                    {"id": "custom/roleplay-model", "description": "Uncensored roleplay and creative writing model"},
+                ]
+            }
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        def get(self, *args, **kwargs):
+            return Response()
+
+    monkeypatch.setattr(provider_runtime, "HTTPClient", Client)
+    monkeypatch.setattr(provider_runtime, "get_api_key", lambda provider: "configured")
+
+    result = provider_runtime.fetch_models_with_status("openrouter", force=True)
+    assert result["status"] == "available"
+    assert "nsfw_models" in result
+    assert "anthracite-org/magnum-v4-72b" in result["nsfw_models"]
+    assert "custom/roleplay-model" in result["nsfw_models"]
+    assert "google/gemini-2.5-flash" not in result["nsfw_models"]
+
+
+def test_huggingface_and_deepinfra_providers_registered():
+    from FiL_Design_ImageMind.common.config import ACCOUNT_PROVIDER_KEYS, PROVIDERS, get_recommended_models, get_recommended_vision_models
+    from FiL_Design_ImageMind.common.provider_runtime import _curated_fallback
+
+    assert "huggingface" in PROVIDERS
+    assert "deepinfra" in PROVIDERS
+    assert "huggingface" in ACCOUNT_PROVIDER_KEYS
+    assert "deepinfra" in ACCOUNT_PROVIDER_KEYS
+
+    hf_models, hf_vision, hf_nsfw = _curated_fallback("huggingface")
+    assert "Qwen/Qwen3-VL-235B-A22B-Instruct" in hf_models
+    assert "Qwen/Qwen3-VL-235B-A22B-Instruct" in hf_vision
+    assert "Qwen/Qwen3-VL-235B-A22B-Instruct" in hf_nsfw
+
+    di_models, di_vision, di_nsfw = _curated_fallback("deepinfra")
+    assert "Qwen/Qwen3-VL-235B-A22B-Instruct" in di_models
+    assert "Qwen/Qwen3-VL-235B-A22B-Instruct" in di_vision
+    assert "deepseek-ai/DeepSeek-R1-0528" in di_nsfw
+
+
+def test_verified_models_configuration_and_runtime():
+    from FiL_Design_ImageMind.common.config import get_verified_models, is_model_verified
+    from FiL_Design_ImageMind.common import provider_runtime
+
+    groq_verified = get_verified_models("groq")
+    assert "qwen/qwen3.8-27b" in groq_verified
+    assert is_model_verified("groq", "qwen/qwen3.8-27b") is True
+    assert is_model_verified("groq", "qwen3.8-27b") is True
+    assert is_model_verified("groq", "unknown/bogus-model") is False
+
+    google_verified = get_verified_models("google")
+    assert "gemini-2.5-flash" in google_verified
+    assert "gemma-4-26b-a4b-it" in google_verified
+    assert is_model_verified("google", "gemini-2.5-flash") is True
+
+    cf_verified = get_verified_models("cloudflare")
+    assert any("qwen" in m for m in cf_verified)
+
+    openrouter_verified = get_verified_models("openrouter")
+    assert any(":free" in m for m in openrouter_verified)
+
+    # Check fallback returns models
+    fallback_models, fallback_vision, fallback_nsfw = provider_runtime._curated_fallback("groq")
+    assert "qwen/qwen3.8-27b" in fallback_models
+
+    # Check fetch_models_with_status provides verified_models key
+    res = provider_runtime.fetch_models_with_status("groq", force=True)
+    assert "verified_models" in res
+    assert isinstance(res["verified_models"], list)
+    assert "qwen/qwen3.8-27b" in res["verified_models"]
+
+

@@ -179,3 +179,49 @@ def test_google_chat_models_are_vision_but_its_media_models_are_not():
     # Unconditional `True` for google used to badge these too.
     assert caps.resolve_vision("google", "lyria-3-pro-preview") is False
     assert caps.resolve_vision("google", "gemini-2.5-flash-preview-tts") is False
+
+
+# --- NSFW capability tests -------------------------------------------------
+
+
+def test_nsfw_uncensored_openrouter_models_detected():
+    assert caps.is_nsfw_capable("openrouter", "sao10k/fimbulvetr-11b-v2") is True
+    assert caps.is_nsfw_capable("openrouter", "gryphe/mythomax-l2-13b") is True
+    assert caps.is_nsfw_capable("openrouter", "anthropic/claude-3.5-sonnet") is False
+
+
+def test_nsfw_cloudflare_verified_models_detected():
+    assert caps.is_nsfw_capable("cloudflare", "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b") is True
+    assert caps.is_nsfw_capable("cloudflare", "@cf/meta/llama-4-scout-17b-16e-instruct") is True
+    assert caps.is_nsfw_capable("cloudflare", "@cf/qwen/qwq-32b") is True
+    assert caps.is_nsfw_capable("cloudflare", "@cf/google/gemma-2b-it-lora") is False
+
+
+def test_nsfw_google_gemini_models_not_badged_due_to_server_layer2_policy():
+    # Google Gemini enforces non-configurable server-side blockReason OTHER on explicit NSFW
+    assert caps.is_nsfw_capable("google", "gemini-2.5-flash") is False
+    assert caps.is_nsfw_capable("google", "gemini-3.6-flash") is False
+    assert caps.is_nsfw_capable("google", "lyria-3-pro-preview") is False
+    assert caps.is_nsfw_capable("google", "gemini-2.5-flash-preview-tts") is False
+
+
+def test_nsfw_openrouter_verified_free_models_detected():
+    assert caps.is_nsfw_capable("openrouter", "minimax/minimax-m3:free") is True
+    assert caps.is_nsfw_capable("openrouter", "nvidia/nemotron-3.5-lightning:free") is True
+
+
+def test_huggingface_and_deepinfra_capabilities():
+    assert caps.resolve_vision("huggingface", "Qwen/Qwen3-VL-235B-A22B-Instruct") is True
+    assert caps.resolve_vision("huggingface", "Qwen/Qwen2.5-VL-72B-Instruct") is True
+    assert caps.resolve_vision("huggingface", "deepseek-ai/DeepSeek-V4-Flash-Vision-Exp") is True
+    assert caps.resolve_vision("huggingface", "deepseek-ai/DeepSeek-R1") is False
+
+    assert caps.resolve_vision("deepinfra", "Qwen/Qwen3-VL-235B-A22B-Instruct") is True
+    assert caps.resolve_vision("deepinfra", "deepseek-ai/DeepSeek-R1-0528") is False
+
+    assert caps.is_nsfw_capable("huggingface", "Qwen/Qwen3-VL-235B-A22B-Instruct") is True
+    assert caps.is_nsfw_capable("huggingface", "deepseek-ai/DeepSeek-R1") is True
+
+    assert caps.is_nsfw_capable("deepinfra", "Qwen/Qwen3-VL-235B-A22B-Instruct") is True
+    assert caps.is_nsfw_capable("deepinfra", "deepseek-ai/DeepSeek-R1-0528") is True
+

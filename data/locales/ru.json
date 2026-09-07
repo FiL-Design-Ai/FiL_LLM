@@ -763,6 +763,10 @@
   "krea2_p_vision": "👁️ Вес Vision",
   "krea2_p_colormatch": "🎨 Цветовой баланс",
   "krea2_p_lora": "🧬 LoRA",
-  "krea2_p_lora_str": "⚖️ Сила LoRA"
+  "krea2_p_lora_str": "⚖️ Сила LoRA",
+  "pmp_group_status": "Статус",
+  "pmp_status_all": "Все модели",
+  "pmp_status_verified": "⚡ Работающие",
+  "pmp_badge_verified": "⚡ Проверено"
 }
 

@@ -22,9 +22,10 @@ const editing = ref<Record<string, { key: string; base_url: string; account_id: 
 const probing = ref<Record<string, boolean>>({});
 const probedOk = ref<Record<string, boolean>>({});
 const loadingModels = ref<Record<string, boolean>>({});
-// Off-status cards render as a single compact row; the user expands them to
-// configure. Keyed by provider id, only meaningful while status === "off".
-const expanded = ref<Record<string, boolean>>({});
+// Tracks whether each provider card is collapsed or expanded.
+// By default: "off" starts collapsed, "configured" / "connected" starts expanded.
+// Users can click the header or chevron of ANY provider to collapse or expand it.
+const collapsedOverrides = ref<Record<string, boolean>>({});
 
 onMounted(async () => {
   await Promise.all([store.loadAccounts(), store.loadDisplayNames()]);
@@ -158,15 +159,15 @@ const STATUS_LABEL = computed<Record<PmStatus, string>>(() => ({
   off: t("pm_status_off", "Not connected"),
 }));
 
-// Only unconfigured ("off") providers collapse; a configured/connected one is
-// always shown expanded regardless of the toggle.
 function isCollapsed(pid: string): boolean {
-  return providerStatus(pid) === "off" && !expanded.value[pid];
+  if (collapsedOverrides.value[pid] !== undefined) {
+    return collapsedOverrides.value[pid];
+  }
+  return providerStatus(pid) === "off";
 }
 
 function toggleExpand(pid: string) {
-  if (providerStatus(pid) !== "off") return;
-  expanded.value[pid] = !expanded.value[pid];
+  collapsedOverrides.value[pid] = !isCollapsed(pid);
 }
 
 async function doSave(pid: string) {
@@ -232,8 +233,7 @@ const hasChanges = (pid: string) => {
       :class="{ 'fil-pm-card--collapsed': isCollapsed(pid) }"
     >
       <div
-        class="fil-pm-header"
-        :class="{ 'fil-pm-header--clickable': providerStatus(pid) === 'off' }"
+        class="fil-pm-header fil-pm-header--clickable"
         @click="toggleExpand(pid)"
       >
         <span class="fil-pm-icon"><FilIcon :name="providerIconMap[pid]" :size="20" /></span>
@@ -248,9 +248,8 @@ const hasChanges = (pid: string) => {
           {{ STATUS_LABEL[providerStatus(pid)] }}
         </span>
         <span
-          v-if="providerStatus(pid) === 'off'"
           class="fil-pm-chevron"
-          :class="{ 'fil-pm-chevron--open': expanded[pid] }"
+          :class="{ 'fil-pm-chevron--open': !isCollapsed(pid) }"
         >
           <FilIcon name="chevronRight" :size="12" />
         </span>

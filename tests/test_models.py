@@ -63,6 +63,18 @@ def test_google_build_payload_omits_optional_fields_by_default():
     assert "responseMimeType" not in cfg
 
 
+def test_google_build_payload_includes_block_none_safety_settings():
+    strategy = _strategy(GoogleStrategy)
+    payload = strategy.build_payload({"model": "gemini-2.5-flash"}, "sys", "user")
+    safety = payload.get("safetySettings", [])
+    assert len(safety) == 5
+    for s in safety:
+        assert s["threshold"] == "BLOCK_NONE"
+    categories = {s["category"] for s in safety}
+    assert "HARM_CATEGORY_SEXUALLY_EXPLICIT" in categories
+    assert "HARM_CATEGORY_HARASSMENT" in categories
+
+
 # ---------------------------------------------------------------------------
 # parse_response must no longer mask a failed/error payload by dumping it
 # as if it were the model's actual text answer.
@@ -339,6 +351,28 @@ def test_lmstudio_chat_url_takes_v1_from_the_chat_endpoint():
     assert url == "http://127.0.0.1:1234/v1/chat/completions"
 
 
+def test_lmstudio_chat_url_normalizes_base_url_with_v1():
+    strategy = _strategy(OpenAIStrategy)
+    url = strategy.get_chat_url(
+        {"provider": "lmstudio", "url": "http://127.0.0.1:1234/v1", "chat_endpoint": "/v1/chat/completions"}
+    )
+    assert url == "http://127.0.0.1:1234/v1/chat/completions"
+
+
+def test_lmstudio_chat_url_defaults_to_v1_without_chat_endpoint():
+    strategy = _strategy(OpenAIStrategy)
+    url = strategy.get_chat_url({"provider": "lmstudio", "url": "http://127.0.0.1:1234"})
+    assert url == "http://127.0.0.1:1234/v1/chat/completions"
+
+
+def test_lmstudio_chat_url_fixes_unsuffixed_endpoint():
+    strategy = _strategy(OpenAIStrategy)
+    url = strategy.get_chat_url(
+        {"provider": "lmstudio", "url": "http://127.0.0.1:1234", "chat_endpoint": "/chat/completions"}
+    )
+    assert url == "http://127.0.0.1:1234/v1/chat/completions"
+
+
 def test_chat_url_defaults_to_the_openai_shape_without_an_endpoint():
     strategy = _strategy(OpenAIStrategy)
     url = strategy.get_chat_url({"provider": "openrouter", "url": "https://openrouter.ai/api/v1"})
@@ -372,3 +406,38 @@ def test_lmstudio_generate_posts_to_the_v1_chat_endpoint(monkeypatch):
 
     assert answer == "OK"
     assert seen["url"] == "http://127.0.0.1:1234/v1/chat/completions"
+
+
+def test_huggingface_generate_posts_to_v1_chat_endpoint(monkeypatch):
+    from FiL_Design_ImageMind.common import models as models_module
+
+    client = ModelClient()
+    seen = {}
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"choices": [{"finish_reason": "stop", "message": {"content": "HF OK"}}]}
+
+    def fake_post(url, **kwargs):
+        seen["url"] = url
+        seen["headers"] = kwargs.get("headers", {})
+        return Response()
+
+    monkeypatch.setattr(client.http_client, "post", fake_post)
+    monkeypatch.setattr(client.rate_limiter, "wait_if_needed", lambda *a, **k: None)
+    monkeypatch.setattr(models_module, "get_api_key", lambda provider: "hf_test_token")
+
+    answer = client.generate(
+        provider="huggingface",
+        model="Qwen/Qwen2.5-VL-72B-Instruct",
+        system_prompt="sys",
+        user_prompt="usr",
+    )
+
+    assert answer == "HF OK"
+    assert seen["url"] == "https://router.huggingface.co/v1/chat/completions"
+    assert seen["headers"].get("Authorization") == "Bearer hf_test_token"
+

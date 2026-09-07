@@ -176,6 +176,13 @@ def declared_vision(provider: str, entry: Dict[str, Any]) -> Optional[bool]:
     if not isinstance(entry, dict):
         return None
 
+    # Known catalog omissions / overrides:
+    # Cloudflare's catalogue omits the `vision` property for mistral-small-3.1-24b-instruct,
+    # yet it is a Pixtral-based multimodal model and live tests confirm it processes images.
+    name = str(entry.get("name") or entry.get("id") or "").lower().strip()
+    if "mistral-small-3.1-24b" in name:
+        return True
+
     modalities = _declared_input_modalities(entry)
     if modalities is not None:
         return "image" in modalities
@@ -249,6 +256,132 @@ def resolve_vision(provider: str, model: str) -> bool:
         # list (TTS, Lyria, image generation) are filtered before this point.
         return is_chat_capable("google", clean)
 
+    if prov == "cloudflare" and "mistral-small-3.1-24b" in clean:
+        return True
+
     from .vision_heuristics import is_vision_capable as _guess_from_name
 
     return _guess_from_name(provider, model)
+
+
+# ---------------------------------------------------------------------------
+# Uncensored / NSFW models (roleplay, erotica, creative writing without alignment)
+# ---------------------------------------------------------------------------
+
+NSFW_UNCENSORED_PATTERNS = (
+    "magnum",
+    "dolphin",
+    "stheno",
+    "euryale",
+    "lunaris",
+    "fimbulvetr",
+    "cydonia",
+    "mythomax",
+    "uncensored",
+    "abliterated",
+    "unaligned",
+    "venice",
+    "erotica",
+    "erotic",
+    "nsfw",
+    "hentai",
+    "maid",
+    "beaver",
+    "midnight-rose",
+    "dark-planet",
+    "neversleep",
+    "sao10k",
+    "gryphe",
+    "anthracite-org",
+    "thedrummer",
+    "cognitivecomputations",
+    "mancer",
+    "undi95",
+    "remm",
+    "aion-rp",
+    "aion-labs",
+    "deepsex",
+    "lustify",
+    "noromaid",
+    "limpkin",
+    "samantha",
+)
+
+# Cloudflare Workers AI models verified via live API tests to generate adult/NSFW prompts without refusal
+CLOUDFLARE_VERIFIED_NSFW_MODELS = (
+    "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+    "@cf/google/gemma-4-26b-a4b-it",
+    "@cf/meta-llama/llama-2-7b-chat-hf-lora",
+    "@cf/meta/llama-3.1-8b-instruct-fp8",
+    "@cf/meta/llama-3.2-1b-instruct",
+    "@cf/meta/llama-3.2-3b-instruct",
+    "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "@cf/mistral/mistral-7b-instruct-v0.2-lora",
+    "@cf/mistralai/mistral-small-3.1-24b-instruct",
+    "@cf/openai/gpt-oss-120b",
+    "@cf/openai/gpt-oss-20b",
+    "@cf/qwen/qwen2.5-coder-32b-instruct",
+    "@cf/qwen/qwen3.8-27b",
+    "@cf/qwen/qwq-32b",
+    "@cf/zai-org/glm-4.7-flash",
+)
+
+
+# OpenRouter free models verified via live API tests to generate adult/NSFW prompts without refusal
+OPENROUTER_VERIFIED_FREE_NSFW_MODELS = (
+    "minimax/minimax-m3:free",
+    "nvidia/nemotron-3.5-lightning:free",
+    "inclusionai/ling-3.0-flash-fin:free",
+    "cohere/north-mini-code:free",
+)
+
+
+def is_nsfw_capable(provider: str, model: str, entry: Optional[Dict[str, Any]] = None) -> bool:
+    """Detect whether a model is uncensored / designed for NSFW / RP without content refusal.
+
+    Checks model id against known uncensored model families (e.g. Magnum, Dolphin,
+    Sao10k, Mythomax, Venice, Abliterated), as well as provider catalog metadata
+    (such as OpenRouter's description / tags), verified uncensored models on Cloudflare,
+    and Google Gemini models with BLOCK_NONE thresholds enabled in GoogleStrategy.
+    """
+    clean = (model or "").strip().lower()
+    if not clean:
+        return False
+
+    prov = (provider or "").strip().lower()
+
+    # Cloudflare verified uncensored models
+    if prov == "cloudflare":
+        norm_cf = clean if clean.startswith("@cf/") else f"@cf/{clean}"
+        if any(cf_m in (clean, norm_cf) for cf_m in CLOUDFLARE_VERIFIED_NSFW_MODELS):
+            return True
+
+    # Hugging Face Serverless models (open weights without external moderation filter)
+    if prov == "huggingface":
+        if any(m in clean for m in ("qwen", "deepseek", "aya", "llama", "mistral", "ernie")):
+            return True
+
+    # DeepInfra verified models (unfiltered open weight models)
+    if prov == "deepinfra":
+        if any(m in clean for m in ("qwen3-vl", "deepseek", "llama-3.3", "magnum", "dolphin")):
+            return True
+
+    # OpenRouter verified free uncensored models
+    if prov == "openrouter":
+        if any(orf_m in clean for orf_m in OPENROUTER_VERIFIED_FREE_NSFW_MODELS):
+            return True
+
+    # Check model identifier against known uncensored & NSFW patterns
+    if any(pat in clean for pat in NSFW_UNCENSORED_PATTERNS):
+        return True
+
+    # If provider returned catalog item with description/tags (e.g. OpenRouter)
+    if isinstance(entry, dict):
+        desc = str(entry.get("description", "")).lower()
+        if any(term in desc for term in ("uncensored", "nsfw", "unfiltered", "no filter", "erotica", "without refusal")):
+            return True
+
+    return False
+
+

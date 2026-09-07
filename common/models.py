@@ -165,15 +165,22 @@ class OpenAIStrategy(ModelStrategy):
                 "cloudflare": "",
             }
             base_url = fallbacks.get(provider, "https://api.openrouter.ai/api/v1")
-        # The cloud providers carry `/v1` in the base URL and take a bare
-        # `/chat/completions`; LM Studio's server root does not — its chat
-        # path is `/v1/chat/completions`, and it answers the unsuffixed one
-        # with a 404. The provider definition already says which shape
-        # applies (`chat_endpoint`); the hardcoded suffix ignored it.
-        endpoint = str(config.get("chat_endpoint") or "").strip() or "/chat/completions"
+        prov_def = PROVIDERS.get(provider)
+        endpoint = str(config.get("chat_endpoint") or (prov_def.chat_endpoint if prov_def else "") or "").strip()
+        if not endpoint:
+            endpoint = "/v1/chat/completions" if provider == "lmstudio" else "/chat/completions"
         if not endpoint.startswith("/"):
             endpoint = f"/{endpoint}"
-        return base_url.rstrip("/") + endpoint
+
+        base_clean = base_url.rstrip("/")
+        # Avoid duplicate /v1 if user specifies base_url ending in /v1 and endpoint starts with /v1
+        if base_clean.endswith("/v1") and endpoint.startswith("/v1/"):
+            endpoint = endpoint[3:]
+        # Ensure lmstudio always targets /v1/chat/completions even if an unsuffixed endpoint was given
+        elif provider == "lmstudio" and not base_clean.endswith("/v1") and not endpoint.startswith("/v1/"):
+            endpoint = f"/v1{endpoint}"
+
+        return base_clean + endpoint
 
     def get_headers(self, config):
         provider = config.get("provider", "openrouter")
@@ -310,7 +317,21 @@ class GoogleStrategy(ModelStrategy):
             generation_config["maxOutputTokens"] = int(max_tokens)
         if kwargs.get("response_format") == "json":
             generation_config["responseMimeType"] = "application/json"
-        return {"contents": [{"parts": parts}], "generationConfig": generation_config}
+
+        # Unrestricted safety settings: disable moderation filters for creative art,
+        # adult NSFW, sensuality, and anatomical image generation.
+        safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_CIVIC_INTEGRITY", "threshold": "BLOCK_NONE"},
+        ]
+        return {
+            "contents": [{"parts": parts}],
+            "generationConfig": generation_config,
+            "safetySettings": safety_settings,
+        }
 
     def parse_response(self, data):
         if not isinstance(data, dict):
@@ -392,6 +413,8 @@ class ModelClient:
             "groq": OpenAIStrategy(self.http_client, self.rate_limiter),
             "openrouter": OpenAIStrategy(self.http_client, self.rate_limiter),
             "cloudflare": OpenAIStrategy(self.http_client, self.rate_limiter),
+            "huggingface": OpenAIStrategy(self.http_client, self.rate_limiter),
+            "deepinfra": OpenAIStrategy(self.http_client, self.rate_limiter),
             "google": GoogleStrategy(self.http_client, self.rate_limiter),
         }
 
@@ -493,26 +516,31 @@ class ModelClient:
                 self._cache.set(provider, model_name, system_prompt, user_prompt, result, img_hash, seed, temperature)
             return result
 
-        # OpenRouter free-model vision fallback: when an image is present and the
-        # selected model fails, try up to 3 free vision candidates. Only 429
-        # errors advance to the next candidate; any other error raises.
-        if (
+        # OpenRouter free-model fallback: when a free model is selected and fails with 429,
+        # try up to 6 free candidates (requiring vision if images are present).
+        is_free_openrouter = (
             provider == "openrouter"
-            and images
+            and (":free" in model_name or model_name == "openrouter/free" or bool(images))
+        )
+        if (
+            is_free_openrouter
             and not self.config.get_bool("providers.openrouter.disable_vision_fallback", False)
         ):
+            require_vision = bool(images)
             candidates = get_openrouter_candidates(
-                {"provider": provider, "model": model_name}, model_name, require_vision=True
-            )[:3]
+                {"provider": provider, "model": model_name}, model_name, require_vision=require_vision
+            )[:6]
             if not candidates:
-                raise FiLError(
-                    "No free OpenRouter vision candidates available from /models.",
-                    code="OPENROUTER_NO_VISION_CANDIDATES",
-                )
+                if require_vision:
+                    raise FiLError(
+                        "No free OpenRouter vision candidates available from /models.",
+                        code="OPENROUTER_NO_VISION_CANDIDATES",
+                    )
+                candidates = [model_name]
             last_error: Optional[BaseException] = None
             last_rate_limit_error: Optional[BaseException] = None
             for i, candidate in enumerate(candidates, 1):
-                logger.info("[OPENROUTER] Vision attempt %s/%s using '%s'", i, len(candidates), candidate)
+                logger.info("[OPENROUTER] Attempt %s/%s using '%s'", i, len(candidates), candidate)
                 try:
                     return _build_and_send(candidate)
                 except FiLError:
@@ -530,7 +558,7 @@ class ModelClient:
                     raise InferenceError(sanitize_sensitive_data(f"API call to {provider}/{candidate} failed: {exc}")) from exc
             if last_rate_limit_error is not None:
                 raise FiLError(
-                    "Все бесплатные vision-модели OpenRouter сейчас перегружены.",
+                    "Все бесплатные модели OpenRouter сейчас перегружены (429 Rate Limit). Попробуйте через 30-60 сек или переключитесь на Hugging Face / Ollama.",
                     code="OPENROUTER_ALL_RATE_LIMITED",
                 )
             raise InferenceError(sanitize_sensitive_data(f"API call to {provider}/{model_name} failed: {last_error}")) from last_error

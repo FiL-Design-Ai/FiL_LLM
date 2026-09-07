@@ -13,12 +13,15 @@ from .config import (
     PROVIDERS,
     get_recommended_models,
     get_recommended_vision_models,
+    get_verified_models,
+    is_model_verified,
     is_model_vision_capable,
 )
 from .model_capabilities import (
     declared_vision,
     forget_declared,
     is_chat_capable,
+    is_nsfw_capable,
     known_declaration,
     remember_declared,
 )
@@ -32,18 +35,25 @@ from .brand import BRAND
 logger = logging.getLogger(f"{BRAND}.ProviderRuntime")
 
 MODEL_CACHE_TTL = 300  # seconds (5 minutes)
-_model_cache: Dict[str, tuple[float, List[str], str, str, List[str]]] = {}
-"""provider → (timestamp, model_names, status_label, message, vision_model_names)"""
+_model_cache: Dict[str, tuple[float, List[str], str, str, List[str], List[str], List[str]]] = {}
+"""provider → (timestamp, model_names, status_label, message, vision_model_names, nsfw_model_names, verified_model_names)"""
 
 
 def _result(
-    status: str, message: str, models: List[str] | None = None, vision_models: List[str] | None = None
+    status: str,
+    message: str,
+    models: List[str] | None = None,
+    vision_models: List[str] | None = None,
+    nsfw_models: List[str] | None = None,
+    verified_models: List[str] | None = None,
 ) -> Dict[str, Any]:
     return {
         "models": models or [],
         "status": status,
         "message": message,
         "vision_models": vision_models or [],
+        "nsfw_models": nsfw_models or [],
+        "verified_models": verified_models or [],
     }
 
 
@@ -113,10 +123,11 @@ def _entries_from_payload(provider_key: str, data: Any) -> List[tuple[str, Dict[
     return [(item.get("id") or item.get("name", ""), item) for item in raw if isinstance(item, dict)]
 
 
-def _classify(provider_key: str, entries: List[tuple[str, Dict[str, Any]]]) -> tuple[List[str], List[str]]:
-    """Split a raw catalogue into (chat models, the vision subset of them)."""
+def _classify(provider_key: str, entries: List[tuple[str, Dict[str, Any]]]) -> tuple[List[str], List[str], List[str]]:
+    """Split a raw catalogue into (chat models, vision subset, nsfw uncensored subset)."""
     models: List[str] = []
     vision: List[str] = []
+    nsfw: List[str] = []
     for name, entry in entries:
         if not name:
             continue
@@ -129,13 +140,16 @@ def _classify(provider_key: str, entries: List[tuple[str, Dict[str, Any]]]) -> t
             remember_declared(provider_key, clean, stated)
         if is_model_vision_capable(provider_key, clean):
             vision.append(clean)
+        if is_nsfw_capable(provider_key, clean, entry):
+            nsfw.append(clean)
     models = sorted(set(models))
     vision = sorted(set(vision) & set(models))
-    return models, vision
+    nsfw = sorted(set(nsfw) & set(models))
+    return models, vision, nsfw
 
 
-def _curated_fallback(provider_key: str) -> tuple[List[str], List[str]]:
-    """The offline answer for a provider: its curated list, vision resolved.
+def _curated_fallback(provider_key: str) -> tuple[List[str], List[str], List[str]]:
+    """The offline answer for a provider: its curated list, vision and nsfw resolved.
 
     The audited answers are seeded as declarations, so the name-only callers
     (`node_scanner`, `node_decomposer`, `node_dataset`) badge these models the
@@ -147,7 +161,9 @@ def _curated_fallback(provider_key: str) -> tuple[List[str], List[str]]:
     for name in models:
         if known_declaration(provider_key, name) is None:
             remember_declared(provider_key, name, name in audited)
-    return models, [m for m in models if is_model_vision_capable(provider_key, m)]
+    vision = [m for m in models if is_model_vision_capable(provider_key, m)]
+    nsfw = [m for m in models if is_nsfw_capable(provider_key, m)]
+    return models, vision, nsfw
 
 
 def _fetch_cloudflare_catalog(base_url: str, api_key: str) -> List[Dict[str, Any]]:
@@ -181,9 +197,9 @@ def fetch_models_with_status(provider: str, force: bool = False) -> Dict[str, An
     if not force:
         cached = _model_cache.get(provider_key)
         if cached is not None:
-            ts, models, status, message, vision_models = cached
+            ts, models, status, message, vision_models, nsfw_models, verified_models = cached
             if status == "available" and time.time() - ts < MODEL_CACHE_TTL:
-                return _result(status, message, models, vision_models)
+                return _result(status, message, models, vision_models, nsfw_models, verified_models)
 
     definition = PROVIDERS.get(provider_key)
     if not definition:
@@ -207,10 +223,11 @@ def fetch_models_with_status(provider: str, force: bool = False) -> Dict[str, An
         forget_declared(provider_key)
         models: List[str] = []
         vision_models: List[str] = []
+        nsfw_models: List[str] = []
         message = "Подключение работает."
         try:
             entries = [(item.get("name", ""), item) for item in _fetch_cloudflare_catalog(base_url, api_key)]
-            models, vision_models = _classify(provider_key, entries)
+            models, vision_models, nsfw_models = _classify(provider_key, entries)
         except Exception:
             logger.warning("Cloudflare model catalogue unavailable — using the curated list")
         # An empty catalogue is a failed catalogue: a reachable endpoint that
@@ -218,15 +235,20 @@ def fetch_models_with_status(provider: str, force: bool = False) -> Dict[str, An
         # with no models.
         if not models:
             forget_declared(provider_key)
-            models, vision_models = _curated_fallback(provider_key)
+            models, vision_models, nsfw_models = _curated_fallback(provider_key)
             message = "Каталог недоступен — показан проверенный список моделей Cloudflare."
-        result = _result("available", message, models, vision_models)
-        _model_cache[provider_key] = (time.time(), models, "available", message, vision_models)
+        verified_models = [m for m in models if is_model_verified(provider_key, m)]
+        result = _result("available", message, models, vision_models, nsfw_models, verified_models)
+        _model_cache[provider_key] = (time.time(), models, "available", message, vision_models, nsfw_models, verified_models)
         return result
 
     try:
         client = HTTPClient(max_retries=0, default_timeout=15)
-        url = f"{base_url.rstrip('/')}{definition.models_endpoint}"
+        models_endpoint = definition.models_endpoint
+        base_clean = base_url.rstrip("/")
+        if base_clean.endswith("/v1") and models_endpoint.startswith("/v1/"):
+            models_endpoint = models_endpoint[3:]
+        url = f"{base_clean}{models_endpoint}"
         headers: Dict[str, str] = {}
         if provider_key == "google":
             headers["x-goog-api-key"] = api_key
@@ -234,15 +256,16 @@ def fetch_models_with_status(provider: str, force: bool = False) -> Dict[str, An
             headers[definition.header_name] = f"{definition.header_prefix}{api_key}".strip()
         response = client.get(url, headers=headers, quiet=True)
         forget_declared(provider_key)
-        clean, vision_models = _classify(provider_key, _entries_from_payload(provider_key, response.json()))
+        clean, vision_models, nsfw_models = _classify(provider_key, _entries_from_payload(provider_key, response.json()))
         # Only what the answer proves: the key was accepted by `/models` and the
         # catalogue is readable. It says nothing about generation — OpenAI and
         # Google both list this key happily and answer 429 on the first
         # completion. Claiming "подключение работает" here is what put a green
         # badge on an account that cannot run a single node.
         message = "Список моделей получен."
-        result = _result("available", message, clean, vision_models)
-        _model_cache[provider_key] = (time.time(), clean, "available", message, vision_models)
+        verified_models = [m for m in clean if is_model_verified(provider_key, m)]
+        result = _result("available", message, clean, vision_models, nsfw_models, verified_models)
+        _model_cache[provider_key] = (time.time(), clean, "available", message, vision_models, nsfw_models, verified_models)
         return result
     except Exception as exc:
         status, message = _error_status(exc)
@@ -256,10 +279,11 @@ def fetch_models_with_status(provider: str, force: bool = False) -> Dict[str, An
         # pulled is not a choice.
         if provider_key in LOCAL_PROVIDERS:
             return _result(status, message)
-        models, vision_models = _curated_fallback(provider_key)
+        models, vision_models, nsfw_models = _curated_fallback(provider_key)
         if not models:
             return _result(status, message)
-        return _result(status, f"{message} Показан проверенный список моделей.", models, vision_models)
+        verified_models = [m for m in models if is_model_verified(provider_key, m)]
+        return _result(status, f"{message} Показан проверенный список моделей.", models, vision_models, nsfw_models, verified_models)
 
 
 def fetch_models_from_provider(provider: str) -> List[str]:
@@ -351,6 +375,8 @@ def unload_local_model(provider: str, model: str) -> None:
     if not base_url:
         return
     root = base_url.rstrip("/")
+    if root.endswith("/v1"):
+        root = root[:-3]
     try:
         client = HTTPClient(max_retries=0, default_timeout=15)
         if provider_key == "ollama":
