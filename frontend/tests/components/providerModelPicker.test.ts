@@ -5,7 +5,7 @@ import { createPinia, setActivePinia } from "pinia";
 import ProviderModelPickerVue from "@/components/nodes/ProviderModelPicker.vue";
 import { useProviderStore } from "@/stores/providerStore";
 import { _resetFavourites } from "@/stores/modelFavourites";
-import { _resetRecents } from "@/stores/browserRecents";
+import { _resetRecents, recentsFor } from "@/stores/browserRecents";
 
 /**
  * `FilBrowser` teleports to `document.body`, so a plain `wrapper.find` never
@@ -139,63 +139,70 @@ describe("ProviderModelPicker search and filters", () => {
     expect(document.querySelector(".fb-empty")).not.toBeNull();
   });
 
-  it("splits free vs paid OpenRouter models by tier", async () => {
+  it("splits free vs paid OpenRouter models by tier chip", async () => {
     await openWith("openrouter", ["gpt-4o", "gpt-4o:free"]);
-    sidebarRow("Paid").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const freeChip = document.querySelector<HTMLButtonElement>(".pmp-chip-free")!;
+    expect(freeChip).not.toBeNull();
+    freeChip.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
 
     expect(cardCount()).toBe(1);
-    expect(modelCard("gpt-4o")).toBeTruthy();
-    expect(() => modelCard("gpt-4o:free")).toThrow();
+    expect(document.querySelectorAll<HTMLElement>(".fb-card")[0].textContent).toContain("gpt-4o:free");
   });
 
-  it("marks Hugging Face models as free tier", async () => {
+  it("marks Hugging Face models as free tier on quick chip", async () => {
     await openWith("huggingface", ["Qwen/Qwen2.5-VL-72B-Instruct"]);
-    expect(sidebarRow("Free").textContent).toContain("1");
-    expect(sidebarRow("Paid").textContent).toContain("0");
+    const freeChip = document.querySelector<HTMLButtonElement>(".pmp-chip-free")!;
+    expect(freeChip.querySelector(".pmp-chip-count")?.textContent).toBe("1");
   });
 
-  it("filters to vision-tagged models only", async () => {
+  it("filters to vision-tagged models only via quick chip", async () => {
     await openWith("openrouter", ["gpt-4o", "text-only-model"], ["gpt-4o"]);
-    sidebarRow("Vision").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const visionChip = document.querySelector<HTMLButtonElement>(".pmp-chip-vision")!;
+    visionChip.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
 
     expect(cardCount()).toBe(1);
     expect(modelCard("gpt-4o")).toBeTruthy();
   });
 
-  // Clicking the row that is already on turns it back off, so a facet never
-  // needs its "All" row to be hunted for.
-  it("turns a facet off when its row is clicked again", async () => {
+  // Clicking the chip that is already on turns it back off, so a facet never
+  // needs an "All" button to be hunted for.
+  it("turns a filter off when quick chip is clicked again", async () => {
     await openWith("openrouter", ["gpt-4o", "text-only-model"], ["gpt-4o"]);
-    const vision = sidebarRow("Vision");
+    const vision = document.querySelector<HTMLButtonElement>(".pmp-chip-vision")!;
     vision.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
     expect(cardCount()).toBe(1);
 
-    sidebarRow("Vision").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    vision.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
     expect(cardCount()).toBe(2);
   });
 
-  // Local providers only ever have local models, so Free/Paid would be two
-  // rows that always read 0.
-  it("offers only the Local tier for a local provider", async () => {
+  it("sidebar contains only providers list and local provider models count as free", async () => {
     await openWith("ollama", ["llama3"]);
+    const headings = Array.from(document.querySelectorAll(".fb-grouphead")).map((h) => h.textContent?.trim());
+    expect(headings).toEqual(["Provider"]);
+
     const rows = Array.from(document.querySelectorAll(".fb-row")).map((r) => r.textContent ?? "");
-    expect(rows.some((r) => r.includes("Local"))).toBe(true);
-    expect(rows.some((r) => r.includes("Free"))).toBe(false);
-    expect(rows.some((r) => r.includes("Paid"))).toBe(false);
+    expect(rows.some((r) => r.includes("Ollama"))).toBe(true);
+    expect(rows.some((r) => r.includes("OpenRouter"))).toBe(true);
+    expect(rows.some((r) => r.includes("Status"))).toBe(false);
+    expect(rows.some((r) => r.includes("Tier"))).toBe(false);
+
+    const freeChip = document.querySelector<HTMLButtonElement>(".pmp-chip-free")!;
+    expect(freeChip.querySelector(".pmp-chip-count")?.textContent).toBe("1");
   });
 
-  // Each row's number answers "how many would be left if I clicked this", so
-  // the axis being counted is excluded from its own count.
-  it("counts a facet row against the other filters, not itself", async () => {
+  it("displays provider model count in sidebar without interference from toolbar chips", async () => {
     await openWith("openrouter", ["a-vision:free", "b-vision", "c-text:free"], ["a-vision:free", "b-vision"]);
-    sidebarRow("Free").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const freeChip = document.querySelector<HTMLButtonElement>(".pmp-chip-free")!;
+    freeChip.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
-    // Free is on, so Vision must count only the free vision model.
-    expect(sidebarRow("Vision").querySelector(".fb-row-count")?.textContent).toBe("1");
+
+    expect(cardCount()).toBe(2);
+    expect(sidebarRow("OpenRouter").querySelector(".fb-row-count")?.textContent).toBe("3");
   });
 });
 
@@ -206,7 +213,8 @@ describe("ProviderModelPicker favourites and recents", () => {
     await nextTick();
     expect(starFor("llama3").classList.contains("on")).toBe(true);
 
-    sidebarRow("Favourites").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const favChip = document.querySelector<HTMLButtonElement>(".pmp-chip-fav")!;
+    favChip.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
     expect(cardCount()).toBe(1);
     expect(modelCard("llama3")).toBeTruthy();
@@ -218,15 +226,11 @@ describe("ProviderModelPicker favourites and recents", () => {
     await openWith("ollama", ["llama3", "llava"]);
     modelCard("llava").dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
-    expect(sidebarRow("Recently used").querySelector(".fb-row-count")?.textContent).toBe("0");
+    expect(recentsFor("models:ollama")).toEqual([]);
 
     footerButton("Use this model").dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
-    // Reopen: the applied model is now in the recents.
-    await wrapper!.setProps({ open: false });
-    await wrapper!.setProps({ open: true });
-    await nextTick();
-    expect(sidebarRow("Recently used").querySelector(".fb-row-count")?.textContent).toBe("1");
+    expect(recentsFor("models:ollama")).toContain("llava");
   });
 });
 
@@ -292,7 +296,8 @@ describe("ProviderModelPicker selection", () => {
     expect(modelCard("magnum-v4-72b").textContent).toContain("🔞 NSFW");
     expect(modelCard("gpt-4o").textContent).not.toContain("🔞 NSFW");
 
-    sidebarRow("Uncensored").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const nsfwChip = document.querySelector<HTMLButtonElement>(".pmp-chip-nsfw")!;
+    nsfwChip.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
     expect(cardCount()).toBe(1);
     expect(modelCard("magnum-v4-72b")).not.toBeNull();
@@ -304,7 +309,8 @@ describe("ProviderModelPicker selection", () => {
     expect(modelCard("qwen3.8-27b").textContent).toContain("⚡ Verified");
     expect(modelCard("broken-model").textContent).not.toContain("⚡ Verified");
 
-    sidebarRow("Verified").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const verifiedChip = document.querySelector<HTMLButtonElement>(".pmp-chip-verified")!;
+    verifiedChip.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
     expect(cardCount()).toBe(1);
     expect(modelCard("qwen3.8-27b")).not.toBeNull();

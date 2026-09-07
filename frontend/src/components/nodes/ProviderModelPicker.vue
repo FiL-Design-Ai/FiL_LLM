@@ -25,8 +25,8 @@ import FilBrowser from "@/components/widgets/FilBrowser.vue";
 import FilBrowserSidebar from "@/components/widgets/FilBrowserSidebar.vue";
 import FilButton from "@/components/widgets/FilButton.vue";
 import { useProviderStore, PROVIDER_LIST } from "@/stores/providerStore";
-import { isFavourite, toggleFavourite, favouriteCountFor } from "@/stores/modelFavourites";
-import { noteRecent, recentCountFor, recentsFor } from "@/stores/browserRecents";
+import { isFavourite, toggleFavourite } from "@/stores/modelFavourites";
+import { noteRecent, recentsFor } from "@/stores/browserRecents";
 import { PROVIDER_LABEL, PROVIDER_ICON } from "@/composables/providerMeta";
 import { rankItems, type SearchField } from "@/lib/browserSearch";
 import type { BrowserItem, BrowserSidebarSection, BrowserTag } from "@/lib/browserTypes";
@@ -250,11 +250,14 @@ const browserItems = computed<BrowserItem[]>(() => {
 
 // ── the left column & quick toolbar chips ────────────────────────────────────
 
-const countIf = (skip: "status" | "type" | "tier" | "only" | "content", test: (m: string) => boolean) =>
-  currentModels.value.filter((m) => passes(m, skip) && test(m)).length;
-
 const chipVerifiedCount = computed(() => currentModels.value.filter(isVerified).length);
 const chipFavCount = computed(() => currentModels.value.filter(starred).length);
+const chipFreeCount = computed(
+  () =>
+    currentModels.value.filter(
+      (m) => getTier(m, selectedProvider.value) === "free" || getTier(m, selectedProvider.value) === "local",
+    ).length,
+);
 const chipVisionCount = computed(() => currentModels.value.filter(isVision).length);
 const chipNsfwCount = computed(() => currentModels.value.filter(isNsfw).length);
 
@@ -278,114 +281,27 @@ function resetAllFilters() {
   searchQuery.value = "";
 }
 
-const sidebarSections = computed<BrowserSidebarSection[]>(() => {
-  const models = currentModels.value;
-  const scope = recentScope.value;
-
-  const sections: BrowserSidebarSection[] = [
-    {
-      id: "providers",
-      heading: t("pmp_group_provider", "Provider"),
-      rows: PROVIDER_LIST.map((p) => ({
-        id: `provider:${p}`,
-        label: PROVIDER_LABEL[p] ?? p,
-        iconName: PROVIDER_ICON[p],
-        // No number while a provider has never been opened: a bare 0 there
-        // reads as "this one is empty" rather than "not loaded yet".
-        count: store.modelsFor(p).length || null,
-      })),
-    },
-    {
-      id: "status",
-      heading: t("pmp_group_status", "Status"),
-      rows: [
-        { id: "status:all", label: t("pmp_status_all", "All models"), count: countIf("status", () => true) },
-        { id: "status:verified", label: t("pmp_status_verified", "Verified"), icon: "⚡", count: countIf("status", isVerified) },
-      ],
-    },
-    {
-      id: "only",
-      heading: t("pmp_group_show", "Show"),
-      rows: [
-        { id: "only:all", label: t("pmp_only_all", "All models"), count: countIf("only", () => true) },
-        {
-          id: "only:fav",
-          label: t("pmp_only_fav", "Favourites"),
-          icon: "⭐",
-          count: favouriteCountFor(selectedProvider.value, models),
-        },
-        {
-          id: "only:recent",
-          label: t("pmp_only_recent", "Recently used"),
-          icon: "🕐",
-          count: recentCountFor(scope, models),
-        },
-      ],
-    },
-    {
-      id: "type",
-      heading: t("pmp_group_type", "Type"),
-      rows: [
-        { id: "type:all", label: t("pmp_all_types", "All types"), count: countIf("type", () => true) },
-        { id: "type:vision", label: t("pmp_type_vision", "Vision"), icon: "👁", count: countIf("type", isVision) },
-        { id: "type:text", label: t("pmp_type_text", "Text"), icon: "📝", count: countIf("type", (m) => !isVision(m)) },
-      ],
-    },
-  ];
-
-  // Local providers only ever have local models, so free/paid would be two
-  // rows that always read 0.
-  const tierRows = isLocalProvider.value
-    ? [{ id: "tier:local", label: t("pmp_tier_local", "Local"), icon: "💻", count: models.length }]
-    : [
-        { id: "tier:free", label: t("pmp_tier_free", "Free"), icon: "🆓", count: countIf("tier", (m) => getTier(m, selectedProvider.value) === "free") },
-        { id: "tier:paid", label: t("pmp_tier_paid", "Paid"), icon: "💎", count: countIf("tier", (m) => getTier(m, selectedProvider.value) === "paid") },
-      ];
-  sections.push({
-    id: "tier",
-    heading: t("pmp_group_tier", "Tier"),
-    rows: [
-      { id: "tier:all", label: t("pmp_all_tiers", "All tiers"), count: countIf("tier", () => true) },
-      ...tierRows,
-    ],
-  });
-
-  sections.push({
-    id: "content",
-    heading: t("pmp_group_content", "Content"),
-    rows: [
-      { id: "content:all", label: t("pmp_content_all", "All content"), count: countIf("content", () => true) },
-      { id: "content:nsfw", label: t("pmp_content_nsfw", "Uncensored (NSFW)"), icon: "🔞", count: countIf("content", isNsfw) },
-      { id: "content:sfw", label: t("pmp_content_sfw", "Standard"), icon: "🛡️", count: countIf("content", (m) => !isNsfw(m)) },
-    ],
-  });
-
-  return sections;
-});
-
-/** Six axes are in force at once, which is why the sidebar takes a list. */
-const activeRows = computed(() => [
-  `provider:${selectedProvider.value}`,
-  `status:${statusFilter.value}`,
-  `only:${onlyFilter.value}`,
-  `type:${typeFilter.value}`,
-  `tier:${tierFilter.value}`,
-  `content:${contentFilter.value}`,
+const sidebarSections = computed<BrowserSidebarSection[]>(() => [
+  {
+    id: "providers",
+    heading: t("pmp_group_provider", "Provider"),
+    rows: PROVIDER_LIST.map((p) => ({
+      id: `provider:${p}`,
+      label: PROVIDER_LABEL[p] ?? p,
+      iconName: PROVIDER_ICON[p],
+      // No number while a provider has never been opened: a bare 0 there
+      // reads as "this one is empty" rather than "not loaded yet".
+      count: store.modelsFor(p).length || null,
+    })),
+  },
 ]);
 
+const activeRows = computed(() => [`provider:${selectedProvider.value}`]);
+
 function onSidebarPick(id: string) {
-  const [group, value] = [id.slice(0, id.indexOf(":")), id.slice(id.indexOf(":") + 1)];
-  if (group === "provider") {
-    switchProvider(value);
-    return;
+  if (id.startsWith("provider:")) {
+    switchProvider(id.slice("provider:".length));
   }
-  // Clicking the row that is already on turns it back off, so a facet never
-  // needs its own "All" to be hunted for.
-  if (group === "status") statusFilter.value = statusFilter.value === value ? "all" : (value as StatusFilter);
-  else if (group === "only") onlyFilter.value = onlyFilter.value === value ? "all" : (value as OnlyFilter);
-  else if (group === "type") typeFilter.value = typeFilter.value === value ? "all" : (value as TypeFilter);
-  else if (group === "tier") tierFilter.value = tierFilter.value === value ? "all" : (value as TierFilter);
-  else if (group === "content") contentFilter.value = contentFilter.value === value ? "all" : (value as ContentFilter);
 }
 
 // ── provider switching and loading ───────────────────────────────────────────
@@ -548,6 +464,17 @@ function confirmSelection(id?: string) {
           <span class="pmp-chip-icon">⭐</span>
           <span class="pmp-chip-label">{{ t('pmp_chip_fav', 'Favourites') }}</span>
           <span class="pmp-chip-count">{{ chipFavCount }}</span>
+        </button>
+        <button
+          type="button"
+          class="pmp-chip pmp-chip-free"
+          :class="{ on: tierFilter === 'free' || tierFilter === 'local', zero: chipFreeCount === 0 }"
+          :title="t('pmp_tier_free', 'Free models only')"
+          @click="tierFilter = tierFilter === 'free' || tierFilter === 'local' ? 'all' : (isLocalProvider ? 'local' : 'free')"
+        >
+          <span class="pmp-chip-icon">🆓</span>
+          <span class="pmp-chip-label">{{ t('pmp_chip_free', 'Free') }}</span>
+          <span class="pmp-chip-count">{{ chipFreeCount }}</span>
         </button>
         <button
           type="button"
@@ -717,6 +644,12 @@ function confirmSelection(id?: string) {
   border-color: #f59e0b;
   color: #fbbf24;
   box-shadow: 0 0 6px color-mix(in srgb, #f59e0b 25%, transparent);
+}
+.pmp-chip.pmp-chip-free.on {
+  background: color-mix(in srgb, var(--fil-ok) 15%, transparent);
+  border-color: var(--fil-ok);
+  color: var(--fil-ok);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--fil-ok) 25%, transparent);
 }
 .pmp-chip.pmp-chip-vision.on {
   background: color-mix(in srgb, var(--fil-accent) 18%, transparent);
