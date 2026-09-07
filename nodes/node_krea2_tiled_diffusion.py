@@ -7,15 +7,10 @@ conditioning, Edge-Aware Adaptive Texture Injection, and color lock.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import torch
 import folder_paths
 
-import comfy.model_management
-import comfy.sample
-import comfy.samplers
-import comfy.utils
 
 from comfy_api.latest import io
 
@@ -119,7 +114,6 @@ class FiLKrea2TiledDiffusion(io.ComfyNode):
                 tile_grid: str = "auto", tile_overlap: str = "auto (256px)", tile_batch_size: int = 1,
                 texture_injection: float = 0.20, color_match: str = "none",
                 identity_lora_name: str = "none", identity_lora_strength: float = 1.0):
-        import comfy.model_management
         import comfy.sample
         import comfy.sd
 

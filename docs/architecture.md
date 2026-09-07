@@ -9,7 +9,7 @@ Canonical node ids:
 - `FiLProviderLoader`, `FiLOpticScanner`, `FiLPromptDirector`, `FiLPrompter` — LLM
 - `FiLImageDecomposer` — Analysis
 - `FiLStyleMixer`, `FiLCinemaRig` — Styling
-- `FiLKSampler`, `FiLHighResFix`, `FiLNoiseControl` — Sampling
+- `FiLKSampler`, `FiLHighResFix`, `FiLNoiseControl`, `FiLKrea2TiledDiffusion` — Sampling
 - `FiLUpscaleTileCalc`, `FiLUpscaleSimple`, `FiLTileAssembly`, `FiLColorWizard` — Image
 - `FiLDatasetForge` — Dataset
 - `FiLSeed` — Values

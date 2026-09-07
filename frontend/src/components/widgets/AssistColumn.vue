@@ -80,7 +80,7 @@ function buttonTitle(op: (typeof ASSIST_OPS)[number]): string {
 
     <AssistSettingsModal
       v-model:open="showSettings"
-      :settings="settings"
+      v-model:settings="settings"
       :context="context"
       @save-default="saveAsDefault"
       @reset-defaults="resetToDefaults"

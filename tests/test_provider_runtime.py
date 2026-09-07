@@ -866,7 +866,7 @@ def test_nsfw_classification_and_api_response(monkeypatch):
 
 
 def test_huggingface_and_deepinfra_providers_registered():
-    from FiL_Design_ImageMind.common.config import ACCOUNT_PROVIDER_KEYS, PROVIDERS, get_recommended_models, get_recommended_vision_models
+    from FiL_Design_ImageMind.common.config import ACCOUNT_PROVIDER_KEYS, PROVIDERS
     from FiL_Design_ImageMind.common.provider_runtime import _curated_fallback
 
     assert "huggingface" in PROVIDERS

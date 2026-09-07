@@ -13,7 +13,6 @@ from .config import (
     PROVIDERS,
     get_recommended_models,
     get_recommended_vision_models,
-    get_verified_models,
     is_model_verified,
     is_model_vision_capable,
 )

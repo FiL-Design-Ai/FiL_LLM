@@ -22,7 +22,6 @@ import comfy.sample
 import comfy.samplers
 import comfy.sd
 import comfy.utils
-import folder_paths
 
 logger = logging.getLogger(__name__)
 

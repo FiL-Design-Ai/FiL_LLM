@@ -14,11 +14,12 @@ import type { AssistSettings, AssistStyle, AssistLength, AssistLanguage } from "
 
 const props = withDefaults(
   defineProps<{
-    settings: AssistSettings;
     context?: "instruction" | "prompt";
   }>(),
   { context: "instruction" },
 );
+
+const settings = defineModel<AssistSettings>("settings", { required: true });
 
 const emit = defineEmits<{
   (e: "save-default"): void;
@@ -92,7 +93,7 @@ function onResetDefaults() {
         </div>
         <FilSegmented
           v-if="context === 'prompt'"
-          v-model="props.settings.style"
+          v-model="settings.style"
           :options="styleOptions"
           :option-labels="styleLabels"
           :title="t('pda_sec_style', 'Style & Atmosphere')"
@@ -100,7 +101,7 @@ function onResetDefaults() {
         />
         <FilSegmented
           v-else
-          v-model="props.settings.style"
+          v-model="settings.style"
           :options="toneOptions"
           :option-labels="toneLabels"
           :title="t('pda_sec_tone', 'Instruction Tone')"
@@ -112,7 +113,7 @@ function onResetDefaults() {
       <div class="fil-asm-section">
         <div class="fil-asm-label-row">
           <span class="fil-asm-section-label">{{ t('pda_sec_creativity', 'Creativity (Temperature)') }}</span>
-          <span class="fil-asm-badge">{{ props.settings.creativity.toFixed(2) }}</span>
+          <span class="fil-asm-badge">{{ settings.creativity.toFixed(2) }}</span>
         </div>
         <div class="fil-asm-slider-wrap">
           <input
@@ -121,7 +122,7 @@ function onResetDefaults() {
             min="0.1"
             max="1.0"
             step="0.05"
-            v-model.number="props.settings.creativity"
+            v-model.number="settings.creativity"
           />
           <div class="fil-asm-slider-hints">
             <span>0.1 ({{ t('pda_cr_exact', 'Exact') }})</span>
@@ -140,7 +141,7 @@ function onResetDefaults() {
         </div>
         <FilSegmented
           v-if="context === 'prompt'"
-          v-model="props.settings.length"
+          v-model="settings.length"
           :options="lengthOptions"
           :option-labels="lengthLabels"
           :title="t('pda_sec_length', 'Length & Detail')"
@@ -148,7 +149,7 @@ function onResetDefaults() {
         />
         <FilSegmented
           v-else
-          v-model="props.settings.length"
+          v-model="settings.length"
           :options="scopeOptions"
           :option-labels="scopeLabels"
           :title="t('pda_sec_scope', 'Editing Scope')"
@@ -164,7 +165,7 @@ function onResetDefaults() {
           </span>
         </div>
         <FilSegmented
-          v-model="props.settings.target_language"
+          v-model="settings.target_language"
           :options="langOptions"
           :option-labels="langLabels"
           :title="context === 'prompt' ? t('pda_sec_lang', 'Output Language') : t('pda_sec_inst_lang', 'Instruction Language')"
