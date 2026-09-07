@@ -13,7 +13,7 @@
   <a href="https://www.python.org/"><img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat-square&logo=python"></a>
   <a href="https://github.com/comfyanonymous/ComfyUI"><img alt="ComfyUI 0.3.60+" src="https://img.shields.io/badge/ComfyUI-0.3.60%2B-111111?style=flat-square"></a>
   <a href="https://docs.comfy.org/custom-nodes/backend/lifecycle"><img alt="ComfyUI API V3" src="https://img.shields.io/badge/ComfyUI_API-V3-7c5cff?style=flat-square"></a>
-  <a href="#node-reference"><img alt="Nodes" src="https://img.shields.io/badge/Nodes-23-f08a45?style=flat-square"></a>
+  <a href="#node-reference"><img alt="Nodes" src="https://img.shields.io/badge/Nodes-24-f08a45?style=flat-square"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square"></a>
 </p>
 
@@ -58,11 +58,11 @@
 
 A custom node pack for **ComfyUI**, written against the **V3 node API** (`io.ComfyNode`,
 declarative `define_schema()`, async `execute()`), with a Vue 3 + TypeScript frontend bundled
-into `frontend/dist`. It covers four main areas across 19 specialized nodes:
+into `frontend/dist`. It covers four main areas across 24 specialized nodes:
 
 | Area | What you get |
 |---|---|
-| 🧠 **LLM & vision** | Seven providers (local and cloud), 12 subject agents plus a neutral describer — each composable with 5 craft focuses — model-specific prompt profiles for Z-Image, FLUX, SDXL, QWEN, Krea 2, Ideogram 4 and a universal Video profile for video models |
+| 🧠 **LLM & vision** | Nine providers (local and cloud), 12 subject agents plus a neutral describer — each composable with 5 craft focuses — model-specific prompt profiles for Z-Image, FLUX, SDXL, QWEN, Krea 2, Ideogram 4 and a universal Video profile for video models |
 | 🖼️ **Image pipeline** | Tile-grid planning with real overlap maths, model upscaling, per-tile crops in pixel *and* latent space, feathered re-assembly, automatic colour correction, LoRA Dataset Forge |
 | 🎛️ **Sampling & Cycling** | A full KSampler with every sampler/scheduler, passthrough sockets, built-in preview, HighRes-fix, Noise-Control scripts, plus automated Model Cycler with VRAM flushing and watermark label outputs |
 | 🎨 **UI Engine** | Every node draws a real Vue panel — twelve HUD themes (Cyberpunk Neon, Pip-Boy Green, Vault-Tec Amber, etc.), full ru/en localization, Graph Undo Guard, Takeover Wire Replacement with Undo toasts, compact toggles, numeric steppers, contract-driven option lists |
@@ -429,6 +429,29 @@ range.
 
 </details>
 
+<details>
+<summary><b>🎨 Krea2 Tiled Diffusion</b> — <code>FiLKrea2TiledDiffusion</code> — edge-aware tiled diffusion & texture injection</summary>
+
+High-fidelity tiled diffusion engine designed for Krea2 / Flux.2 architectures with edge-aware Sobel texture preservation, color matching and identity LoRA integration.
+
+| Input | Type | Default | Notes |
+|---|---|---|---|
+| `model` | MODEL | — | base diffusion model |
+| `image` | IMAGE | — | input source image to upscale |
+| `vae` | VAE | — | VAE for tiled encode/decode |
+| `positive` | CONDITIONING | — | positive conditioning |
+| `negative` | CONDITIONING (optional) | — | negative conditioning |
+| `prompt` | STRING | `""` | guided detail prompt |
+| `steps` | INT | `20` | sampling steps per tile |
+| `denoise` | FLOAT | `0.35` | tile denoise strength |
+| `tile_grid` | COMBO | `2x2` | 2x2 (4 tiles) – 4x4 (16 tiles) |
+| `texture_injection` | FLOAT | `0.15` | Sobel edge-aware high-frequency detail preservation |
+| `color_match` | COMBO | `lab` | none, lab, wavelet, rgb color transfer |
+
+**Outputs:** `image` (IMAGE), `latent` (LATENT)
+
+</details>
+
 #### 🎨 FiL Design/🖼️ Image
 
 <details>
@@ -689,13 +712,13 @@ value untouched; OFF passes `None` on the wire without blocking optional downstr
 
 Набор кастомных узлов для **ComfyUI** на **V3 API** (`io.ComfyNode`, декларативный
 `define_schema()`, асинхронный `execute()`) с фронтендом на Vue 3 + TypeScript, собранным в
-`frontend/dist`. Четыре основных направления (21 узел):
+`frontend/dist`. Четыре основных направления (24 узла):
 
 | Направление | Что даёт |
 |---|---|
-| 🧠 **LLM и зрение** | Семь провайдеров (локальные и облачные), 12 предметных агентов плюс нейтральный описатель — каждый сочетается с 5 фокус-оверлеями, профили промптов под Z-Image, FLUX, SDXL, QWEN, Krea 2, Ideogram 4 и универсальный Video-профиль для видео-моделей |
+| 🧠 **LLM и зрение** | Девять провайдеров (локальные и облачные), 12 предметных агентов плюс нейтральный описатель — каждый сочетается с 5 фокус-оверлеями, профили промптов под Z-Image, FLUX, SDXL, QWEN, Krea 2, Ideogram 4 и универсальный Video-профиль для видео-моделей |
 | 🖼️ **Работа с изображением** | Планирование сетки тайлов с честной математикой нахлёста, апскейл моделью, кропы тайлов в пиксельном *и* латентном пространстве, сборка с растушёвкой, авто-цветокоррекция, LoRA Dataset Forge |
-| 🎛️ **Сэмплинг и Циклер** | Полноценный KSampler со всеми сэмплерами/планировщиками, passthrough-сокетами и встроенным превью, скрипты HighRes Fix, Noise Control, плюс авто-переключатель моделей `Model Cycler` и LoRA-адаптеров `LoRA Loader` с очисткой VRAM и водяными знаками |
+| 🎛️ **Сэмплинг и Циклер** | Полноценный KSampler со всеми сэмплерами/планировщиками, Krea2 Tiled Diffusion с сохранением текстур и контуров, passthrough-сокетами и встроенным превью, скрипты HighRes Fix, Noise Control, плюс авто-переключатель моделей `Model Cycler` и LoRA-адаптеров `LoRA Loader` с очисткой VRAM и водяными знаками |
 | 🎨 **Интерфейс и UX** | У каждого узла настоящая Vue-панель — 12 HUD-тем (Cyberpunk Neon, Pip-Boy Green, Vault-Tec Amber), полная ru/en локализация, Graph Undo Guard (защита от срыва графа при Ctrl+Z), Takeover Wire Replacement с тоастом отмены, компактные тумблеры, степперы |
 
 ---
@@ -733,7 +756,7 @@ value untouched; OFF passes `None` on the wire without blocking optional downstr
 
 ### Справочник по узлам
 
-Все 23 узла по категориям:
+Все 24 узла по категориям:
 
 #### 🎨 FiL Design/LLM
 - 🔌 **Provider Loader** (`FiLProviderLoader`) — выбор провайдера, модели и параметров запроса.
@@ -751,6 +774,7 @@ value untouched; OFF passes `None` on the wire without blocking optional downstr
 
 #### 🎨 FiL Design/Sampling
 - ⚡ **KSampler** (`FiLKSampler`) — сэмплер с passthrough и скриптами.
+- 🎨 **Krea2 Tiled Diffusion** (`FiLKrea2TiledDiffusion`) — тайловая диффузия с сохранением контуров (Edge-Aware) и инъекцией микротекстур.
 - 🔬 **HighRes Fix** (`FiLHighResFix`) — скрипт двухстадийного апскейла и повторного сэмплинга.
 - 🎛️ **Noise Control** (`FiLNoiseControl`) — управление RNG и вариативный шум.
 

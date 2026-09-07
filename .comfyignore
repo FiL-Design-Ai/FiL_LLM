@@ -34,6 +34,7 @@ tests/
 tools/
 scripts/
 scratch/
+thoughts/
 requirements-dev.txt
 .flake8
 .pre-commit-config.yaml
@@ -102,3 +103,4 @@ docs/index.html
 docs/prompting.md
 docs/styles.md
 docs/release/
+docs/design/

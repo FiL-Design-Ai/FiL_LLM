@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.4 (2026-09-07)
+
+### Added
+
+- **🎨 Krea2 Tiled Diffusion (`FiLKrea2TiledDiffusion`) — 24th node in the pack.**
+  Professional edge-aware tiled diffusion engine tailored for Krea2, FLUX.2, and SDXL pipelines.
+  Features Sobel-based high-frequency texture injection (`texture_injection`) preventing blur in dense areas, flexible tile grids (2x2 to 4x4 with customizable overlap), color matching transfer (LAB, Wavelet, RGB), and dedicated Identity LoRA integration (`identity_lora_strength`). Complete with a responsive Cyberpunk-themed Vue panel with unrolled direct parameter controls and permanent input sockets (`_filSocketPolicy = always`).
+- **🤗 New Cloud Providers: Hugging Face & DeepInfra.**
+  Expanded the provider ecosystem to 9 engines. Direct support for **Hugging Face Inference API** (serverless inference router, free tier with no credit card required) and **DeepInfra** (ultra-low latency OpenAI-compatible endpoint), including live model catalog fetching, token probing, and collapsible credentials management in the sidebar `FiL Providers` tab.
+- **⚡ Provider Model Picker — Smart Sort & Dynamic Category Chips.**
+  Total overhaul of the model selector: smart sorting prioritizing vision and top-tier reasoning models, dynamic filter chips with absolute model counts (**Vision**, **NSFW**, **Fast**, **Free**), one-click reset, and synchronized verified model status badges based on 100% live audited capabilities across all providers.
+- **✨ Director Assist & Smart ShowAny Integration.**
+  Interactive prompting toolbar in `FiLPrompter` and `FiLPromptDirector` backed by `/fil_design_imagemind/director_assist`. Automatic intelligent graph wiring to `FiLShowAny` for instant inspection without manually pulling multiple data cables.
+- **🛡️ Registry Cleanliness & Audit Hardening.**
+  Excluded development drafts (`thoughts/`, `docs/design/`) from Comfy Registry packages in `.comfyignore`, reducing distribution archive weight and keeping release integrity pristine.
+
 ## 1.1.3 (2026-09-03)
 
 ### Added
