@@ -328,12 +328,36 @@ CLOUDFLARE_VERIFIED_NSFW_MODELS = (
 )
 
 
-# OpenRouter free models verified via live API tests to generate adult/NSFW prompts without refusal
-OPENROUTER_VERIFIED_FREE_NSFW_MODELS = (
+# OpenRouter models verified via live API tests to generate adult/NSFW prompts and vision descriptions without refusal
+OPENROUTER_VERIFIED_NSFW_MODELS = (
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
     "minimax/minimax-m3:free",
     "nvidia/nemotron-3.5-lightning:free",
     "inclusionai/ling-3.0-flash-fin:free",
     "cohere/north-mini-code:free",
+    "meta-llama/llama-4-scout",
+    "meta-llama/llama-4-maverick",
+    "mistralai/mistral-small-3.2-24b-instruct",
+    "amazon/nova-2-lite-v1",
+    "amazon/nova-lite-v1",
+    "amazon/nova-premier-v1",
+    "amazon/nova-pro-v1",
+    "anthropic/claude-3-haiku",
+    "baidu/ernie-4.5-vl-424b-a47b",
+    "bytedance/ui-tars-1.5-7b",
+    "minimax/minimax-01",
+    "google/gemini-2.5-flash",
+    "google/gemini-2.5-flash-image",
+    "google/gemini-2.5-flash-lite",
+    "google/gemini-2.5-pro",
+    "google/gemini-3-flash-preview",
+    "google/gemini-3.1-flash-image",
+    "google/gemini-3.1-flash-image-preview",
+    "google/gemini-3.1-flash-lite",
+    "google/gemini-3.1-flash-lite-image",
+    "google/gemini-3.5-flash-lite",
+    "google/gemini-3.6-flash",
+    "google/gemma-3-4b-it",
 )
 
 
@@ -377,9 +401,9 @@ def is_nsfw_capable(provider: str, model: str, entry: Optional[Dict[str, Any]] =
         if any(m in clean for m in ("qwen3-vl", "deepseek", "llama-3.3", "magnum", "dolphin")):
             return True
 
-    # OpenRouter verified free uncensored models
+    # OpenRouter verified uncensored models
     if prov == "openrouter":
-        if any(orf_m in clean for orf_m in OPENROUTER_VERIFIED_FREE_NSFW_MODELS):
+        if any(orm in clean for orm in OPENROUTER_VERIFIED_NSFW_MODELS):
             return True
 
     # Check model identifier against known uncensored & NSFW patterns
