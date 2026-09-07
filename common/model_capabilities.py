@@ -351,6 +351,16 @@ def is_nsfw_capable(provider: str, model: str, entry: Optional[Dict[str, Any]] =
 
     prov = (provider or "").strip().lower()
 
+    # Google Gemini models with BLOCK_NONE safety thresholds
+    if prov == "google":
+        if any(g in clean for g in ("flash", "gemma")):
+            return True
+
+    # Groq verified unaligned models
+    if prov == "groq":
+        if "qwen" in clean:
+            return True
+
     # Cloudflare verified uncensored models
     if prov == "cloudflare":
         norm_cf = clean if clean.startswith("@cf/") else f"@cf/{clean}"
