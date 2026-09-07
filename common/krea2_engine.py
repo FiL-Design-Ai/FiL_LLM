@@ -432,3 +432,52 @@ def apply_color_matching(reference_image: torch.Tensor, generated_image: torch.T
         return torch.clamp(matched_ch.movedim(1, -1), 0.0, 1.0).to(generated_image.dtype)
 
     return generated_image
+
+
+def decode_vae_safely(vae: Any, samples: torch.Tensor, tile_size: int = 512, overlap: int = 64) -> torch.Tensor:
+    """Safely decodes 4D or 5D latents using VAE, handling tiled parameters and multidim reshaping."""
+    images = None
+    if hasattr(vae, "decode_tiled"):
+        try:
+            compression = vae.spacial_compression_decode() if hasattr(vae, "spacial_compression_decode") else 8
+            temporal_compression = vae.temporal_compression_decode() if hasattr(vae, "temporal_compression_decode") else None
+
+            tile_x = max(16, tile_size // compression)
+            tile_y = max(16, tile_size // compression)
+            overlap_val = max(4, overlap // compression)
+
+            temporal_size = None
+            temporal_overlap = None
+            if temporal_compression is not None:
+                temporal_size = max(2, 64 // temporal_compression)
+                temporal_overlap = max(1, min(temporal_size // 2, 8 // temporal_compression))
+            elif samples.ndim == 5:
+                temporal_size = max(2, samples.shape[2])
+                temporal_overlap = 1
+
+            images = vae.decode_tiled(
+                samples,
+                tile_x=tile_x,
+                tile_y=tile_y,
+                overlap=overlap_val,
+                tile_t=temporal_size,
+                overlap_t=temporal_overlap
+            )
+        except Exception as exc:
+            logger.warning("Krea 2: decode_tiled failed (%s); falling back to vae.decode", exc)
+            images = None
+
+    if images is None:
+        images = vae.decode(samples)
+
+    if images.ndim == 5:
+        if images.shape[-1] in (1, 3, 4):
+            images = images.reshape(-1, images.shape[-3], images.shape[-2], images.shape[-1])
+        elif images.shape[1] in (1, 3, 4):
+            images = images.movedim(1, -1)
+            images = images.reshape(-1, images.shape[-3], images.shape[-2], images.shape[-1])
+        else:
+            images = images.reshape(-1, images.shape[-3], images.shape[-2], images.shape[-1])
+
+    return images
+

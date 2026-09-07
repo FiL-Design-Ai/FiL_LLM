@@ -12,6 +12,11 @@ from typing import Any
 import torch
 import folder_paths
 
+import comfy.model_management
+import comfy.sample
+import comfy.samplers
+import comfy.utils
+
 from comfy_api.latest import io
 
 from ..common.brand import CATEGORY_IMAGE
@@ -25,6 +30,7 @@ from ..common.krea2_engine import (
     apply_edge_aware_texture,
     build_post_input_rope_offset_patch,
     calculate_tiles,
+    decode_vae_safely,
     denoise_latent_as_fused_tiles,
     scale_image_by_factor,
 )
@@ -204,23 +210,31 @@ class FiLKrea2TiledDiffusion(io.ComfyNode):
         cloned_model.set_model_unet_function_wrapper(tiled_model_wrapper)
 
         # 7. Sample
+        device = target_latent.device
+        target_latent = comfy.sample.fix_empty_latent_channels(cloned_model, target_latent)
+        sigmas = comfy.samplers.KSampler(
+            cloned_model, steps=steps, device=device,
+            sampler="euler", scheduler="simple", denoise=denoise
+        ).sigmas
+
         noise = comfy.sample.prepare_noise(target_latent, seed)
         sampler = comfy.samplers.sampler_object("euler")
-        sigmas = comfy.samplers.calculate_sigmas(cloned_model.get_model_object("model_sampling"), "normal", steps)
-        if denoise < 1.0:
-            sigmas = sigmas[-(int(steps * denoise) + 1):]
 
-        samples = comfy.sample.sample_custom(
-            cloned_model, noise, target_latent, sigmas,
-            global_cond, empty_uncond, sampler,
-            noise_mask=None, disable_pbar=False
+        samples = comfy.samplers.sample(
+            cloned_model, noise, global_cond, empty_uncond, cfg=1.0,
+            device=device, sampler=sampler, sigmas=sigmas.to(device),
+            model_options=cloned_model.model_options,
+            latent_image=target_latent,
+            denoise_mask=None,
+            disable_pbar=False,
+            seed=seed
         )
 
         cloned_model.model_options.pop("model_function_wrapper", None)
         rope_holder.clear()
 
         # 8. Decode
-        decoded_image = vae.decode(samples)
+        decoded_image = decode_vae_safely(vae, samples)
 
         # 9. Polish: Edge-Aware Texture & Color Match
         if scaled_image is not None and texture_injection > 0.0:
